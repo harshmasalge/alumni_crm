@@ -1,0 +1,20 @@
+{
+  "name": "iitgn-alumni-donor-crm",
+  "private": true,
+  "version": "0.1.0",
+  "description": "IITGN Alumni & Donor CRM monorepo",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:crm": "npm run dev --workspace=@iitgn/crm-web",
+    "check:crm": "npm run check --workspace=@iitgn/crm-web",
+    "dev:api": "cd apps/api && uvicorn app.main:app --reload",
+    "db:migrate": "cd apps/api && alembic upgrade head",
+    "db:revision": "cd apps/api && alembic revision --autogenerate -m",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f"
+  }
+}

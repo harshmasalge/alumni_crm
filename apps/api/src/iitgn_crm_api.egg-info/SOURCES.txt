@@ -1,0 +1,11 @@
+README.md
+pyproject.toml
+src/app/main.py
+src/app/core/config.py
+src/app/db/session.py
+src/app/models/__init__.py
+src/iitgn_crm_api.egg-info/PKG-INFO
+src/iitgn_crm_api.egg-info/SOURCES.txt
+src/iitgn_crm_api.egg-info/dependency_links.txt
+src/iitgn_crm_api.egg-info/requires.txt
+src/iitgn_crm_api.egg-info/top_level.txt

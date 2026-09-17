@@ -1,0 +1,33 @@
+Metadata-Version: 2.4
+Name: iitgn-crm-api
+Version: 0.1.0
+Summary: IITGN Alumni & Donor CRM API — FastAPI modular monolith
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+Requires-Dist: fastapi>=0.115.0
+Requires-Dist: uvicorn[standard]>=0.32.0
+Requires-Dist: sqlalchemy>=2.0.36
+Requires-Dist: alembic>=1.13.2
+Requires-Dist: asyncpg>=0.29.0
+Requires-Dist: psycopg2-binary>=2.9.10
+Requires-Dist: pydantic>=2.9.2
+Requires-Dist: pydantic-settings>=2.5.2
+Requires-Dist: python-dotenv>=1.0.1
+Requires-Dist: python-multipart>=0.0.12
+Requires-Dist: redis>=5.1.0
+Requires-Dist: httpx>=0.27.2
+Requires-Dist: email-validator>=2.2.0
+Provides-Extra: dev
+Requires-Dist: pytest>=8.3.4; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.24.0; extra == "dev"
+Requires-Dist: pytest-cov>=5.0.0; extra == "dev"
+Requires-Dist: httpx>=0.27.2; extra == "dev"
+Requires-Dist: faker>=25.3.0; extra == "dev"
+Requires-Dist: ruff>=0.6.9; extra == "dev"
+Requires-Dist: mypy>=1.11.2; extra == "dev"
+
+# API workspace
+
+The FastAPI modular monolith will begin with the M1 constituent/profile vertical slice. Do not create placeholder business routes merely to make this directory look complete.
+
+When M1 begins, add `pyproject.toml`, application configuration, health endpoint, migration configuration, and the constituent module together with its tests and documentation.

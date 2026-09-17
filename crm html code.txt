@@ -1,0 +1,2832 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Alumni CRM</title>
+<style>
+:root{
+  --bg:#f5f4f0;--sur:#fff;--sur2:#f0efe9;
+  --b:rgba(0,0,0,0.09);--b2:rgba(0,0,0,0.16);
+  --t:#1a1a18;--t2:#5a5a55;--t3:#9a9992;
+  --ac:#2563eb;--ac2:#eff6ff;--ac3:#1d4ed8;
+  --gr:#16a34a;--gr2:#f0fdf4;
+  --am:#d97706;--am2:#fffbeb;
+  --rd:#dc2626;--rd2:#fef2f2;
+  --pu:#7c3aed;--pu2:#f5f3ff;
+  --tl:#0d9488;--tl2:#f0fdfa;
+  --fn:'Segoe UI',system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--fn);background:var(--bg);color:var(--t);font-size:14px;display:flex;height:100vh;overflow:hidden;}
+
+
+/* Loader */
+#loader{position:fixed;inset:0;background:var(--bg);z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;}
+.spin{width:36px;height:36px;border:3px solid var(--b2);border-top-color:var(--ac);border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+#lerr{display:none;max-width:480px;background:var(--rd2);border:1px solid var(--rd);border-radius:10px;padding:16px 20px;color:var(--rd);font-size:13px;line-height:1.7;text-align:left;}
+#lerr strong{display:block;font-size:14px;margin-bottom:6px;}
+
+
+/* Sidebar */
+#sb{width:224px;background:var(--sur);border-right:0.5px solid var(--b);display:flex;flex-direction:column;height:100vh;flex-shrink:0;}
+.sbh{padding:18px 16px 13px;border-bottom:0.5px solid var(--b);}
+.sbl{font-size:15px;font-weight:700;}
+.sbs{font-size:11px;color:var(--t3);margin-top:2px;}
+.ns{padding:10px 8px 2px;}
+.nl{font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.8px;padding:0 8px 5px;}
+.ni{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:8px;cursor:pointer;color:var(--t2);font-size:13px;transition:all .15s;margin-bottom:2px;user-select:none;}
+.ni:hover{background:var(--sur2);color:var(--t);}
+.ni.on{background:var(--ac2);color:var(--ac3);font-weight:500;}
+.nic{width:16px;text-align:center;font-size:13px;flex-shrink:0;}
+.nbdg{margin-left:auto;background:var(--rd);color:#fff;font-size:10px;padding:1px 6px;border-radius:10px;font-weight:600;}
+
+
+/* Main */
+#main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.tbar{background:var(--sur);border-bottom:0.5px solid var(--b);padding:0 22px;height:54px;display:flex;align-items:center;gap:12px;flex-shrink:0;}
+.ptitle{font-size:15px;font-weight:600;flex:1;}
+.sdot{width:7px;height:7px;border-radius:50%;background:var(--gr);display:inline-block;margin-right:4px;}
+.sdot.busy{background:var(--am);animation:blink 1s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.btn{padding:7px 13px;border-radius:8px;border:0.5px solid var(--b2);background:var(--sur);color:var(--t);font-size:13px;cursor:pointer;font-family:var(--fn);transition:all .15s;display:inline-flex;align-items:center;gap:5px;}
+.btn:hover{background:var(--sur2);}
+.btn:disabled{opacity:.4;cursor:not-allowed;}
+.btn.pri{background:var(--ac);color:#fff;border-color:var(--ac);}
+.btn.pri:hover{opacity:.9;}
+.btn.dan{background:var(--rd2);color:var(--rd);border-color:var(--rd);}
+.btn.sm{padding:4px 9px;font-size:11px;}
+.ct{flex:1;overflow-y:auto;padding:22px;}
+
+
+/* Stats */
+.sg{display:grid;grid-template-columns:repeat(4,1fr);gap:11px;margin-bottom:18px;}
+.sc{background:var(--sur);border:0.5px solid var(--b);border-radius:12px;padding:14px 16px;}
+.sl{font-size:11px;color:var(--t3);font-weight:500;margin-bottom:4px;}
+.sv{font-size:26px;font-weight:700;line-height:1;}
+.ss{font-size:11px;color:var(--t2);margin-top:2px;}
+
+
+/* Panel */
+.panel{background:var(--sur);border:0.5px solid var(--b);border-radius:12px;overflow:hidden;margin-bottom:14px;}
+.ph{padding:12px 17px;border-bottom:0.5px solid var(--b);font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;}
+.pb{padding:15px 17px;}
+.dg{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+
+
+/* Table */
+.tw{background:var(--sur);border:0.5px solid var(--b);border-radius:12px;overflow:hidden;}
+.twh{padding:11px 16px;border-bottom:0.5px solid var(--b);display:flex;align-items:center;gap:9px;}
+.twh h3{font-size:13px;font-weight:600;flex:1;}
+table{width:100%;border-collapse:collapse;}
+th{font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;padding:9px 13px;text-align:left;background:var(--sur2);border-bottom:0.5px solid var(--b);cursor:pointer;user-select:none;white-space:nowrap;}
+th:hover{color:var(--t2);}
+td{padding:10px 13px;border-bottom:0.5px solid var(--b);font-size:13px;color:var(--t);vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tbody tr:hover td{background:var(--sur2);cursor:pointer;}
+.av{border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;}
+.nr{display:flex;align-items:center;gap:8px;}
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:500;white-space:nowrap;}
+.gr{background:var(--gr2);color:var(--gr);}
+.am{background:var(--am2);color:var(--am);}
+.rd{background:var(--rd2);color:var(--rd);}
+.bl{background:var(--ac2);color:var(--ac3);}
+.pu{background:var(--pu2);color:var(--pu);}
+.tl{background:var(--tl2);color:var(--tl);}
+
+
+/* Search */
+.sbar{background:var(--sur);border:0.5px solid var(--b2);border-radius:10px;padding:8px 12px;display:flex;align-items:center;gap:8px;margin-bottom:14px;}
+.sbar input{border:none;background:transparent;color:var(--t);font-size:13px;flex:1;outline:none;font-family:var(--fn);}
+.sbar input::placeholder{color:var(--t3);}
+
+
+/* Modal */
+.ov{position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:200;display:none;align-items:flex-start;justify-content:center;padding:34px 16px;overflow-y:auto;}
+.ov.open{display:flex;}
+.modal{background:var(--sur);border-radius:14px;width:100%;max-width:680px;border:0.5px solid var(--b);flex-shrink:0;}
+.modal.wide{max-width:900px;}
+.modal.narrow{max-width:480px;}
+.mh{padding:15px 19px;border-bottom:0.5px solid var(--b);display:flex;align-items:center;gap:9px;}
+.mt{font-size:14px;font-weight:600;flex:1;}
+.mb{padding:19px;}
+.mf{padding:13px 19px;border-top:0.5px solid var(--b);display:flex;gap:7px;justify-content:flex-end;}
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:11px;}
+.fi{display:flex;flex-direction:column;gap:4px;}
+.fi.full{grid-column:1/-1;}
+label{font-size:11px;font-weight:600;color:var(--t2);}
+input,select,textarea{padding:7px 10px;border:0.5px solid var(--b2);border-radius:7px;background:var(--sur2);color:var(--t);font-size:13px;font-family:var(--fn);outline:none;transition:border-color .15s;width:100%;}
+input:focus,select:focus,textarea:focus{border-color:var(--ac);}
+textarea{resize:vertical;min-height:60px;}
+.xbtn{background:none;border:none;cursor:pointer;font-size:17px;color:var(--t3);padding:3px;border-radius:5px;}
+.xbtn:hover{background:var(--sur2);}
+
+
+/* Score */
+.sco{height:5px;background:var(--sur2);border-radius:3px;overflow:hidden;width:56px;}
+.scof{height:100%;background:linear-gradient(90deg,var(--ac),var(--tl));border-radius:3px;}
+
+
+/* Verify chip */
+.vc{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:20px;font-size:11px;border:0.5px solid;}
+.vc.due{background:var(--rd2);color:var(--rd);border-color:var(--rd);}
+.vc.ok{background:var(--gr2);color:var(--gr);border-color:var(--gr);}
+.vc.soon{background:var(--am2);color:var(--am);border-color:var(--am);}
+
+
+/* Timeline */
+.tli{display:flex;gap:9px;padding:7px 0;border-bottom:0.5px solid var(--b);}
+.tli:last-child{border-bottom:none;}
+.tld{width:8px;height:8px;border-radius:50%;margin-top:5px;flex-shrink:0;}
+
+
+/* Event card */
+.evc{background:var(--sur2);border-radius:10px;padding:12px;margin-bottom:9px;display:flex;gap:12px;align-items:center;}
+.evd{text-align:center;min-width:44px;}
+.evday{font-size:20px;font-weight:700;color:var(--ac);line-height:1;}
+.evmon{font-size:10px;color:var(--t3);text-transform:uppercase;}
+
+
+/* Reminder */
+.rmc{border-radius:10px;padding:11px 13px;margin-bottom:8px;display:flex;gap:9px;align-items:center;flex-wrap:wrap;}
+.rmc.due{background:var(--rd2);border:0.5px solid var(--rd);}
+.rmc.soon{background:var(--am2);border:0.5px solid var(--am);}
+
+
+/* Filter */
+.fgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:11px;background:var(--sur);border:0.5px solid var(--b);border-radius:12px;padding:16px;margin-bottom:14px;}
+.fitem{display:flex;flex-direction:column;gap:4px;}
+.fitem label{font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;}
+
+
+/* Profile */
+.pgrid{display:grid;grid-template-columns:290px 1fr;gap:16px;}
+.pcard{background:var(--sur);border:0.5px solid var(--b);border-radius:12px;}
+.pcardh{padding:20px;text-align:center;border-bottom:0.5px solid var(--b);}
+.pcardb{padding:14px;}
+.frow{display:flex;gap:8px;padding:7px 0;border-bottom:0.5px solid var(--b);}
+.frow:last-child{border-bottom:none;}
+.fk{font-size:11px;color:var(--t3);font-weight:500;min-width:90px;padding-top:1px;flex-shrink:0;}
+.fv{font-size:13px;color:var(--t);flex:1;word-break:break-word;}
+
+
+/* Tabs */
+.tabs{display:flex;gap:2px;background:var(--sur2);padding:3px;border-radius:9px;margin-bottom:14px;width:fit-content;}
+.tab{padding:5px 13px;border-radius:6px;font-size:13px;cursor:pointer;color:var(--t2);transition:all .15s;}
+.tab.on{background:var(--sur);color:var(--t);font-weight:500;box-shadow:0 1px 3px rgba(0,0,0,.08);}
+
+
+/* Pager */
+.pager{display:flex;gap:5px;align-items:center;padding:11px 16px;border-top:0.5px solid var(--b);}
+.pinfo{font-size:11px;color:var(--t3);flex:1;}
+.pb2{padding:4px 9px;border:0.5px solid var(--b);border-radius:6px;background:var(--sur);cursor:pointer;font-size:11px;color:var(--t2);}
+.pb2:hover{background:var(--sur2);}
+.pb2.on{background:var(--ac2);color:var(--ac3);border-color:var(--ac);}
+
+
+/* Toast */
+#toast{position:fixed;bottom:22px;right:22px;padding:10px 17px;border-radius:10px;font-size:13px;font-weight:500;z-index:999;opacity:0;transition:opacity .25s;pointer-events:none;}
+#toast.show{opacity:1;}
+#toast.ok{background:var(--gr2);color:var(--gr);border:0.5px solid var(--gr);}
+#toast.bad{background:var(--rd2);color:var(--rd);border:0.5px solid var(--rd);}
+#toast.inf{background:var(--ac2);color:var(--ac3);border:0.5px solid var(--ac);}
+
+
+.sec{font-size:13px;font-weight:600;margin-bottom:10px;margin-top:4px;}
+.empty{text-align:center;padding:30px 16px;color:var(--t3);}
+a.lnk{color:var(--ac);text-decoration:none;}
+a.lnk:hover{text-decoration:underline;}
+</style>
+</head>
+<body>
+
+
+<!-- Loader -->
+<div id="loader">
+  <div class="spin"></div>
+  <div style="font-size:13px;color:var(--t3)" id="lmsg">Connecting to Google Sheets…</div>
+  <div id="lerr">
+    <strong>⚠ Could not load data</strong>
+    <span id="lerr-msg"></span><br><br>
+    <strong>Most common fixes:</strong><br>
+    1. Open the <strong>Web App URL</strong> (not the Apps Script editor URL)<br>
+    2. After editing Code.gs, create a <strong>New Deployment</strong><br>
+    3. Check <strong>ALUMNI_SHEET</strong> in Code.gs matches your tab name<br>
+    4. Make sure you ran <strong>setupCRM()</strong> and granted permissions
+  </div>
+</div>
+
+
+<!-- Sidebar -->
+<nav id="sb" style="display:none">
+  <div class="sbh">
+    <div class="sbl">🎓 Alumni CRM</div>
+    <div class="sbs">Dev IITGN</div>
+  </div>
+  <div class="ns">
+    <div class="nl">Overview</div>
+    <div class="ni on" onclick="nav('dash')"><span class="nic">📊</span>Dashboard</div>
+    <div class="ni" onclick="nav('alumni')"><span class="nic">👥</span>Alumni</div>
+    <div class="ni" onclick="nav('search')"><span class="nic">🔍</span>Advanced Search</div>
+  </div>
+  <div class="ns">
+    <div class="nl">Engagement</div>
+    <div class="ni" onclick="nav('events')"><span class="nic">📅</span>Events</div>
+    <div class="ni" onclick="nav('donations')"><span class="nic">💰</span>Donations</div>
+    <div class="ni" onclick="nav('reminders')">
+      <span class="nic">🔔</span>Reminders
+      <span class="nbdg" id="rbdg" style="display:none">0</span>
+    </div>
+  </div>
+  <div class="ns" style="margin-top:auto;border-top:0.5px solid var(--b);padding-top:10px;">
+    <div class="ni" onclick="doExport()"><span class="nic">⬇️</span>Export CSV</div>
+  </div>
+</nav>
+
+
+<!-- Main -->
+<div id="main" style="display:none">
+  <div class="tbar">
+    <span class="ptitle" id="ptitle">Dashboard</span>
+    <span style="font-size:12px;color:var(--t3)"><span class="sdot" id="sdot"></span>Live</span>
+    <div id="tbtn"><button class="btn pri" onclick="openAdd()">+ Add Alumni</button></div>
+  </div>
+  <div class="ct" id="ct"></div>
+</div>
+
+
+<!-- Add / Edit Alumni -->
+<div class="ov" id="m-alm">
+  <div class="modal" style="max-width:780px">
+    <div class="mh" style="background:linear-gradient(135deg,#1a1040,#0f0f1e);border-bottom:none;padding:22px 26px">
+      <div style="display:flex;align-items:center;gap:14px">
+        <div style="width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,#6366f1,#a855f7);display:flex;align-items:center;justify-content:center;font-size:18px">🎓</div>
+        <div><span class="mt" id="m-alm-t" style="color:#fff;font-size:16px">Add Alumni</span>
+        <div style="font-size:11px;color:#ffffff55;margin-top:1px">Fill in the details below</div></div>
+      </div>
+      <button class="xbtn" onclick="closeM('m-alm')" style="color:#ffffff66;margin-left:auto">✕</button>
+    </div>
+    <div class="mb" style="padding:24px 26px;max-height:75vh;overflow-y:auto">
+
+
+      <!-- Section: Academic -->
+      <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">🎓 Academic Info</div>
+      <div class="fg" style="margin-bottom:20px">
+        <div class="fi"><label>YOG *</label><input id="a-yog" type="number" placeholder="2020"></div>
+        <div class="fi"><label>Roll No *</label><input id="a-roll" placeholder="22BCS001"></div>
+        <div class="fi"><label>Course *</label><input id="a-course" placeholder="B.Tech CSE"></div>
+        <div class="fi"><label>Name of the alumni *</label><input id="a-name" placeholder="Rohan Mehta"></div>
+      </div>
+
+
+      <!-- Section: Personal -->
+      <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">👤 Personal Info</div>
+      <div class="fg" style="margin-bottom:20px">
+        <div class="fi"><label>Date of Birth</label><input id="a-dob" type="date"></div>
+        <div class="fi"><label>Gender</label>
+          <select id="a-gender">
+            <option value="">Select…</option>
+            <option>Male</option><option>Female</option><option>Other</option><option>Prefer not to say</option>
+          </select>
+        </div>
+        <div class="fi"><label>Hometown / Home City</label><input id="a-hometown" placeholder="e.g. Jaipur"></div>
+        <div class="fi"><label>Marital Status</label>
+          <select id="a-marital">
+            <option value="">Select…</option>
+            <option>Single</option><option>Married</option><option>Divorced</option><option>Widowed</option>
+          </select>
+        </div>
+        <div class="fi"><label>Phone Number</label><input id="a-phone" placeholder="+91 98765 43210"></div>
+        <div class="fi"><label>Friend's / Emergency Contact</label><input id="a-friend" placeholder="+91 98765 43210"></div>
+      </div>
+
+
+      <!-- Section: Professional -->
+      <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">💼 Professional Info</div>
+      <div class="fg" style="margin-bottom:20px">
+        <div class="fi"><label>Designation</label><input id="a-desig" placeholder="Software Engineer"></div>
+        <div class="fi"><label>Organization / Institute / University</label><input id="a-org"></div>
+        <div class="fi"><label>Sector</label>
+          <select id="a-sector">
+            <option value="">Select sector…</option>
+            <option>IT / Software</option><option>Academia</option><option>Government / PSU</option>
+            <option>Finance / Banking</option><option>Healthcare</option><option>Entrepreneurship</option>
+            <option>Research</option><option>Higher Studies</option><option>Manufacturing</option><option>Other</option>
+          </select>
+        </div>
+        <div class="fi"><label>Month and Year of Joining</label><input id="a-joining" placeholder="July 2020"></div>
+        <div class="fi"><label>Awards / Achievements</label><input id="a-awards" placeholder="Forbes 30 Under 30, etc."></div>
+        <div class="fi"><label>Photo URL</label><input id="a-photo" placeholder="https://…"></div>
+      </div>
+
+
+      <!-- Section: Location -->
+      <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">📍 Location</div>
+      <div class="fg" style="margin-bottom:20px">
+        <div class="fi"><label>City</label><input id="a-city"></div>
+        <div class="fi"><label>State / Province</label><input id="a-state"></div>
+        <div class="fi"><label>Country</label><input id="a-country"></div>
+      </div>
+
+
+      <!-- Section: Contact -->
+      <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">📬 Contact & Social</div>
+      <div class="fg" style="margin-bottom:20px">
+        <div class="fi"><label>LinkedIn URL</label><input id="a-linkedin" placeholder="linkedin.com/in/…"></div>
+        <div class="fi"><label>IITGn Email</label><input id="a-iitgn" type="email"></div>
+        <div class="fi"><label>Personal Email ID</label><input id="a-personal" type="email"></div>
+        <div class="fi"><label>Work Email ID</label><input id="a-work" type="email"></div>
+      </div>
+
+
+      <!-- Section: Notes -->
+      <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">📝 Notes</div>
+      <div class="fg">
+        <div class="fi full"><textarea id="a-notes" placeholder="Any internal notes, remarks…" style="min-height:70px"></textarea></div>
+      </div>
+
+
+    </div>
+    <div class="mf" style="border-top:0.5px solid var(--b)">
+      <button class="btn" onclick="closeM('m-alm')">Cancel</button>
+      <button class="btn pri" onclick="saveAlumni()" style="padding:8px 24px">Save Alumni</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- Job Change -->
+<div class="ov" id="m-jc">
+  <div class="modal narrow">
+    <div class="mh"><span class="mt">Log Job / Location Change</span><button class="xbtn" onclick="closeM('m-jc')">✕</button></div>
+    <div class="mb">
+      <div style="padding:10px 12px;background:var(--sur2);border-radius:8px;font-size:12px;color:var(--t2);margin-bottom:12px" id="jc-cur"></div>
+      <div class="fg">
+        <div class="fi"><label>New Designation</label><input id="jc-desig"></div>
+        <div class="fi"><label>New Organization</label><input id="jc-org"></div>
+        <div class="fi"><label>New City</label><input id="jc-city"></div>
+        <div class="fi"><label>New State / Province</label><input id="jc-state"></div>
+        <div class="fi"><label>New Country</label><input id="jc-country"></div>
+        <div class="fi"><label>New Sector</label>
+          <select id="jc-sector">
+            <option value="">Select…</option>
+            <option>IT / Software</option><option>Academia</option><option>Government / PSU</option>
+            <option>Finance / Banking</option><option>Healthcare</option><option>Entrepreneurship</option>
+            <option>Research</option><option>Higher Studies</option><option>Manufacturing</option><option>Other</option>
+          </select>
+        </div>
+        <div class="fi"><label>New Joining Date</label><input id="jc-joining" placeholder="Jan 2025"></div>
+        <div class="fi"><label>Date of Change</label><input id="jc-date" type="date"></div>
+        <div class="fi full"><label>Source / Notes</label><input id="jc-notes" placeholder="LinkedIn update, alumni meet…"></div>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn" onclick="closeM('m-jc')">Cancel</button>
+      <button class="btn pri" onclick="saveJobChange()">Save Change</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- Donation -->
+<div class="ov" id="m-don">
+  <div class="modal narrow">
+    <div class="mh"><span class="mt">Record Donation</span><button class="xbtn" onclick="closeM('m-don')">✕</button></div>
+    <div class="mb">
+      <div class="fg">
+        <div class="fi full" id="don-name-row">
+          <label>Alumni (type name or roll no)</label>
+          <input id="don-who" list="don-list" placeholder="Start typing…">
+          <datalist id="don-list"></datalist>
+        </div>
+        <div class="fi"><label>Amount (₹) *</label><input id="don-amt" type="number"></div>
+        <div class="fi"><label>Date</label><input id="don-dt" type="date"></div>
+        <div class="fi full"><label>Purpose</label><input id="don-pur" placeholder="Scholarship, Lab equipment…"></div>
+        <div class="fi full"><label>Notes</label><input id="don-nt"></div>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn" onclick="closeM('m-don')">Cancel</button>
+      <button class="btn pri" onclick="saveDonation()">Save</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- Event -->
+<div class="ov" id="m-ev">
+  <div class="modal narrow">
+    <div class="mh"><span class="mt">Add Event / Activity</span><button class="xbtn" onclick="closeM('m-ev')">✕</button></div>
+    <div class="mb">
+      <div class="fg">
+        <div class="fi full"><label>Title *</label><input id="ev-title"></div>
+        <div class="fi"><label>Type *</label>
+          <select id="ev-type">
+            <option value="">Select type…</option>
+            <option value="Event">🎉 Event</option>
+            <option value="Campus Visit">🏫 Campus Visit</option>
+            <option value="Hostel Stay">🛏 Hostel Stay</option>
+            <option value="Guest Lecture">🎤 Guest Lecture</option>
+            <option value="Alumni Meet">🤝 Alumni Meet</option>
+            <option value="Workshop">🛠 Workshop</option>
+            <option value="Other">📌 Other</option>
+          </select>
+        </div>
+        <div class="fi"><label>Date *</label><input id="ev-date" type="date"></div>
+        <div class="fi"><label>Location</label><input id="ev-loc"></div>
+        <div class="fi full"><label>Description</label><textarea id="ev-desc"></textarea></div>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn" onclick="closeM('m-ev')">Cancel</button>
+      <button class="btn pri" onclick="saveEvent()">Save</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- Attendance -->
+<div class="ov" id="m-att">
+  <div class="modal">
+    <div class="mh"><span class="mt" id="att-t">Mark Attendance</span><button class="xbtn" onclick="closeM('m-att')">✕</button></div>
+    <div class="mb" id="att-body"></div>
+    <div class="mf">
+      <button class="btn" onclick="closeM('m-att')">Cancel</button>
+      <button class="btn pri" onclick="saveAtt()">Save Attendance</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- Profile -->
+<div class="ov" id="m-prof">
+  <div class="modal wide">
+    <div class="mh">
+      <span class="mt" id="prof-t">Profile</span>
+      <div style="display:flex;gap:6px;margin-left:auto">
+        <button class="btn sm" id="prof-edit">✏ Edit</button>
+        <button class="btn sm" id="prof-jc">🔄 Log Change</button>
+        <button class="xbtn" onclick="closeM('m-prof')">✕</button>
+      </div>
+    </div>
+    <div class="mb" id="prof-body"></div>
+  </div>
+</div>
+
+
+<div id="toast"></div>
+
+
+<script>
+// ══ STATE ════════════════════════════════════════════════════
+var DB={alumni:[],donations:[],events:[],attendance:[],jobHistory:[]};
+var VIEW='dash',EDIT_ROLL=null,PROF_ROLL=null,JC_ROLL=null,DON_CTX=null,ATT_EID=null;
+var SQ='',SORT={col:'Name of the alumni',dir:1},PAGE=1,PER=25;
+var AF={name:'',yog:'',sector:'',country:'',city:'',org:'',course:'',kw:'',roll:'',minPct:'',maxPct:'',minEng:'',maxEng:''};
+var COLORS=['#2563eb','#16a34a','#d97706','#7c3aed','#0d9488','#dc2626','#ea580c','#0891b2'];
+
+
+// AI Search state - MANUAL is now default
+var AI_MODE='manual';
+var AI_QUERY='';
+var AI_RESULT=null;
+var AI_LOADING=false;
+
+
+// ══ INIT ═════════════════════════════════════════════════════
+window.onload=function(){
+  call('getAll',{},function(res){
+    if(!res.ok){showErr(res.error||'Unknown error');return;}
+    DB=res.payload;
+    hide('loader');show('sb');show('main');
+    render();badge();
+  });
+};
+
+
+// ══ SERVER ═══════════════════════════════════════════════════
+function call(action,data,cb){
+  busy(true);
+  google.script.run
+    .withSuccessHandler(function(raw){
+      busy(false);
+      try{cb(JSON.parse(raw));}
+      catch(e){cb({ok:false,error:'Parse error: '+raw});}
+    })
+    .withFailureHandler(function(e){busy(false);toast('Error: '+e.message,'bad');})
+    .handleRequest(action,JSON.stringify(data));
+}
+function busy(b){var d=gi('sdot');if(d)d.className='sdot'+(b?' busy':'');}
+function gi(id){return document.getElementById(id);}
+function qsa(s){return Array.from(document.querySelectorAll(s));}
+function show(id){gi(id).style.display='';}
+function hide(id){gi(id).style.display='none';}
+function showErr(msg){gi('lmsg').style.display='none';gi('lerr-msg').textContent=msg;gi('lerr').style.display='';}
+function uid(){return 'id_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);}
+
+
+// ══ HELPERS ══════════════════════════════════════════════════
+function av(a,sz){
+  sz=sz||30;
+  var n=a['Name of the alumni']||'?';
+  var ini=n.split(' ').map(function(w){return w[0]||'';}).slice(0,2).join('').toUpperCase();
+  var c=a['_color']||'#2563eb';
+  return '<div class="av" style="width:'+sz+'px;height:'+sz+'px;background:'+c+'22;color:'+c+';font-size:'+Math.round(sz*.37)+'px">'+ini+'</div>';
+}
+function fmtMoney(n){return '₹'+Number(n||0).toLocaleString('en-IN');}
+function fmtDate(d){if(!d)return '—';try{return new Date(d).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});}catch(e){return d;}}
+function vs(d){if(!d)return 'due';var m=(Date.now()-new Date(d).getTime())/(1000*60*60*24*30);return m>12?'due':m>8?'soon':'ok';}
+function vc(d){var s=vs(d),lbl={due:'⚠ Verify Due',soon:'⏳ Verify Soon',ok:'✓ Verified'}[s];return '<span class="vc '+s+'">'+lbl+'</span>';}
+function eng(roll){
+  var ev=DB.attendance.filter(function(a){return a.alumniRoll==roll;}).length;
+  var don=DB.donations.filter(function(d){return d.alumniRoll==roll;}).reduce(function(s,d){return s+Number(d.amount||0);},0);
+  return Math.min(Math.min(ev*15,60)+Math.min(Math.floor(don/1000),40),100);
+}
+
+
+// ── Profile Completeness % ────────────────────────────────────
+// Each field has a weight. Total = 100%.
+var PROF_FIELDS=[
+  {key:'Name of the alumni',      w:10, label:'Name'},
+  {key:'Roll No',                 w:8,  label:'Roll No'},
+  {key:'YOG',                     w:8,  label:'Batch Year'},
+  {key:'Course',                  w:6,  label:'Course'},
+  {key:'Designation',             w:8,  label:'Designation'},
+  {key:'Organization/Institute/University', w:8, label:'Organization'},
+  {key:'Sector',                  w:5,  label:'Sector'},
+  {key:'City',                    w:5,  label:'City'},
+  {key:'Country',                 w:5,  label:'Country'},
+  {key:'Month and Year of Joining',w:4, label:'Joining Date'},
+  {key:'Linkedin',                w:6,  label:'LinkedIn'},
+  {key:'IITGn Email',             w:5,  label:'IITGn Email'},
+  {key:'Personal Email ID',       w:4,  label:'Personal Email'},
+  {key:'Work Email ID',           w:3,  label:'Work Email'},
+  {key:'_phone',                  w:4,  label:'Phone'},
+  {key:'_dob',                    w:3,  label:'Date of Birth'},
+  {key:'_gender',                 w:2,  label:'Gender'},
+  {key:'_hometown',               w:2,  label:'Hometown'},
+  {key:'_marital',                w:2,  label:'Marital Status'},
+  {key:'_friend',                 w:2,  label:'Emergency Contact'},
+];
+// Total weight = 100
+function profPct(a){
+  var filled=0;
+  PROF_FIELDS.forEach(function(f){
+    if(a[f.key]&&String(a[f.key]).trim()!=='') filled+=f.w;
+  });
+  return Math.min(Math.round(filled),100);
+}
+function profPctColor(pct){
+  if(pct>=80) return '#16a34a';
+  if(pct>=50) return '#f59e0b';
+  return '#dc2626';
+}
+function profPctLabel(pct){
+  if(pct>=80) return 'Complete';
+  if(pct>=50) return 'Partial';
+  return 'Incomplete';
+}
+function profPctBar(pct,width,height){
+  width=width||60; height=height||4;
+  var c=profPctColor(pct);
+  return '<div style="height:'+height+'px;width:'+width+'px;background:#f0efe9;border-radius:4px;overflow:hidden;display:inline-block;vertical-align:middle">'
+    +'<div style="height:100%;width:'+pct+'%;background:'+c+';border-radius:4px;transition:width .4s"></div></div>';
+}
+function secBadge(s){return{'IT / Software':'bl','Academia':'pu','Government / PSU':'tl','Finance / Banking':'gr','Entrepreneurship':'am','Research':'pu','Higher Studies':'gr'}[s]||'bl';}
+function toast(msg,type){var t=gi('toast');t.textContent=msg;t.className='show '+(type||'inf');setTimeout(function(){t.className='';},3000);}
+function sc(lbl,val,sub,color){return '<div class="sc"><div class="sl">'+lbl+'</div><div class="sv"'+(color?' style="color:'+color+'"':'')+'>'+val+'</div><div class="ss">'+sub+'</div></div>';}
+function fr(k,v){return '<div class="frow"><span class="fk">'+k+'</span><span class="fv">'+(v||'—')+'</span></div>';}
+
+
+// ══ NAVIGATION ═══════════════════════════════════════════════
+function nav(v){
+  VIEW=v;PAGE=1;
+  qsa('.ni').forEach(function(el){el.classList.remove('on');});
+  var idx=['dash','alumni','search','events','donations','reminders'].indexOf(v);
+  qsa('.ni')[idx]&&qsa('.ni')[idx].classList.add('on');
+  gi('ptitle').textContent={dash:'Dashboard',alumni:'Alumni Directory',search:'Advanced Search',events:'Events',donations:'Donations',reminders:'Reminders'}[v];
+  gi('tbtn').innerHTML=v==='events'?'<button class="btn pri" onclick="openAddEvent()">+ Add Event</button>':v==='donations'?'<button class="btn pri" onclick="openAddDon()">+ Add Donation</button>':'<button class="btn pri" onclick="openAdd()">+ Add Alumni</button>';
+  render();
+}
+function render(){
+  var c=gi('ct');if(!c)return;
+  if(VIEW==='dash')c.innerHTML=renderDash();
+  else if(VIEW==='alumni')c.innerHTML=renderAlumni();
+  else if(VIEW==='search')c.innerHTML=renderSearch();
+  else if(VIEW==='events')c.innerHTML=renderEvents();
+  else if(VIEW==='donations')c.innerHTML=renderDons();
+  else if(VIEW==='reminders')c.innerHTML=renderRem();
+}
+function badge(){
+  var n=DB.alumni.filter(function(a){return vs(a['_lastVerified'])==='due';}).length;
+  var b=gi('rbdg');b.textContent=n;b.style.display=n?'':'none';
+}
+
+
+// ══ DASHBOARD (colorful) ═════════════════════════════════════
+function renderDash(){
+  var totDon=DB.donations.reduce(function(s,d){return s+Number(d.amount||0);},0);
+  var due=DB.alumni.filter(function(a){return vs(a['_lastVerified'])==='due';}).length;
+  var yr=new Date().getFullYear().toString();
+  var yrDon=DB.donations.filter(function(d){return (d.date||'').toString().indexOf(yr)>=0;}).reduce(function(s,d){return s+Number(d.amount||0);},0);
+  var byYog={};DB.alumni.forEach(function(a){var y=a['YOG']||'?';byYog[y]=(byYog[y]||0)+1;});
+  var maxY=Math.max.apply(null,Object.values(byYog).concat([1]));
+  var bySec={};DB.alumni.forEach(function(a){var s=a['Sector']||'Other';bySec[s]=(bySec[s]||0)+1;});
+  var topDon=DB.alumni.map(function(a){return{a:a,t:DB.donations.filter(function(d){return d.alumniRoll==a['Roll No'];}).reduce(function(s,d){return s+Number(d.amount||0);},0)};}).filter(function(x){return x.t>0;}).sort(function(a,b){return b.t-a.t;}).slice(0,5);
+  var now=new Date();
+  var upcoming=DB.events.filter(function(e){return new Date(e.date)>=now;}).sort(function(a,b){return new Date(a.date)-new Date(b.date);}).slice(0,3);
+  // Also calculate FY donations (April–March)
+  var today=new Date();
+  var fyStart=today.getMonth()>=3?today.getFullYear():today.getFullYear()-1;
+  var fyDon=DB.donations.filter(function(d){
+    if(!d.date)return false;
+    var dt=new Date(d.date);var mo=dt.getMonth();var y=dt.getFullYear();
+    var dFy=mo>=3?y:y-1;
+    return dFy===fyStart;
+  }).reduce(function(s,d){return s+Number(d.amount||0);},0);
+  var fyLabel='FY '+fyStart+'–'+(String(fyStart+1).slice(-2));
+
+
+  var statCards=[
+    {label:'Total Alumni',val:DB.alumni.length,sub:'across all batches',bg:'linear-gradient(135deg,#6366f1,#8b5cf6)',icon:'🎓'},
+    {label:'Donations',val:fmtMoney(fyDon),sub:fyLabel,lifetime:fmtMoney(totDon),bg:'linear-gradient(135deg,#10b981,#059669)',icon:'💰'},
+    {label:'Events Held',val:DB.events.length,sub:DB.attendance.length+' attendances',bg:'linear-gradient(135deg,#f59e0b,#d97706)',icon:'📅'},
+    {label:'Verify Due',val:due,sub:'profiles need update',bg:due>0?'linear-gradient(135deg,#ef4444,#dc2626)':'linear-gradient(135deg,#6b7280,#4b5563)',icon:'🔔'}
+  ];
+  var yogColors=['#6366f1','#8b5cf6','#ec4899','#f59e0b','#10b981','#3b82f6','#14b8a6','#f97316'];
+  var secColors=['#6366f1','#10b981','#f59e0b','#ef4444','#3b82f6','#ec4899','#14b8a6','#8b5cf6'];
+  var html='';
+  html+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px">';
+  statCards.forEach(function(c){
+    if(c.lifetime){
+      // Donations card — FY amount big, lifetime small
+      html+='<div style="background:'+c.bg+';border-radius:16px;padding:20px 18px;color:#fff;position:relative;overflow:hidden">'
+        +'<div style="position:absolute;top:-10px;right:-10px;font-size:56px;opacity:.15">'+c.icon+'</div>'
+        +'<div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;opacity:.85;margin-bottom:6px">'+c.label+'</div>'
+        +'<div style="font-size:26px;font-weight:800;line-height:1;margin-bottom:3px">'+c.val+'</div>'
+        +'<div style="font-size:11px;opacity:.9;font-weight:600;margin-bottom:8px">'+c.sub+'</div>'
+        +'<div style="border-top:1px solid rgba(255,255,255,0.2);padding-top:8px;display:flex;align-items:center;justify-content:space-between">'
+        +'<span style="font-size:10px;opacity:.7">Lifetime total</span>'
+        +'<span style="font-size:13px;font-weight:700;opacity:.9">'+c.lifetime+'</span>'
+        +'</div></div>';
+    } else {
+      html+='<div style="background:'+c.bg+';border-radius:16px;padding:20px 18px;color:#fff;position:relative;overflow:hidden">'
+        +'<div style="position:absolute;top:-10px;right:-10px;font-size:56px;opacity:.15">'+c.icon+'</div>'
+        +'<div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;opacity:.85;margin-bottom:8px">'+c.label+'</div>'
+        +'<div style="font-size:28px;font-weight:800;line-height:1;margin-bottom:4px">'+c.val+'</div>'
+        +'<div style="font-size:11px;opacity:.8">'+c.sub+'</div></div>';
+    }
+  });
+  html+='</div>';
+  html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">';
+  // Batch chart
+  html+='<div style="background:#fff;border-radius:16px;border:0.5px solid var(--b);overflow:hidden">'
+    +'<div style="padding:14px 18px;border-bottom:0.5px solid var(--b);display:flex;align-items:center;gap:8px"><span style="font-size:15px">📊</span><span style="font-weight:700;font-size:13px">Alumni by Batch Year</span></div>'
+    +'<div style="padding:16px 18px">';
+  Object.keys(byYog).sort().forEach(function(y,i){
+    var pct=Math.round(byYog[y]/maxY*100);var col=yogColors[i%yogColors.length];
+    html+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'
+      +'<span style="font-size:12px;font-weight:600;color:var(--t2);min-width:38px">'+y+'</span>'
+      +'<div style="flex:1;height:20px;background:#f3f4f6;border-radius:6px;overflow:hidden">'
+      +'<div style="height:100%;width:'+pct+'%;background:'+col+';border-radius:6px;display:flex;align-items:center;padding-left:8px">'
+      +(pct>15?'<span style="font-size:10px;font-weight:700;color:#fff">'+byYog[y]+'</span>':'')
+      +'</div></div>'+(pct<=15?'<span style="font-size:11px;font-weight:600;color:var(--t2)">'+byYog[y]+'</span>':'')+'</div>';
+  });
+  html+='</div></div>';
+  // Top Donors
+  html+='<div style="background:#fff;border-radius:16px;border:0.5px solid var(--b);overflow:hidden">'
+    +'<div style="padding:14px 18px;border-bottom:0.5px solid var(--b);display:flex;align-items:center;gap:8px"><span style="font-size:15px">🏆</span><span style="font-weight:700;font-size:13px">Top Donors</span></div>'
+    +'<div style="padding:8px 0">';
+  if(topDon.length){
+    var mColors=['#f59e0b','#9ca3af','#92400e','#6366f1','#10b981'];
+    var medals=['🥇','🥈','🥉','4th','5th'];
+    topDon.forEach(function(x,i){
+      html+='<div onclick="openProf(\''+x.a['Roll No']+'\')" style="display:flex;align-items:center;gap:12px;padding:10px 18px;cursor:pointer;border-bottom:0.5px solid var(--b)" onmouseover="this.style.background=\'#f9fafb\'" onmouseout="this.style.background=\'transparent\'">'
+        +'<div style="width:28px;height:28px;border-radius:50%;background:'+mColors[i]+'22;color:'+mColors[i]+';display:flex;align-items:center;justify-content:center;font-size:'+(i<3?'16':'11')+'px;font-weight:700;flex-shrink:0">'+medals[i]+'</div>'
+        +av(x.a,32)
+        +'<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+x.a['Name of the alumni']+'</div>'
+        +'<div style="font-size:11px;color:var(--t3)">'+x.a['YOG']+' · '+(x.a['Designation']||'Alumni')+'</div></div>'
+        +'<div style="font-weight:700;font-size:14px;color:#10b981;flex-shrink:0">'+fmtMoney(x.t)+'</div></div>';
+    });
+  } else { html+='<div class="empty">No donations yet</div>'; }
+  html+='</div></div></div>';
+  html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">';
+  // Upcoming Events
+  html+='<div style="background:#fff;border-radius:16px;border:0.5px solid var(--b);overflow:hidden">'
+    +'<div style="padding:14px 18px;border-bottom:0.5px solid var(--b);display:flex;align-items:center;gap:8px"><span style="font-size:15px">📅</span><span style="font-weight:700;font-size:13px">Upcoming Events</span></div>'
+    +'<div style="padding:14px 18px">';
+  if(upcoming.length){
+    var evC=['#6366f1','#10b981','#f59e0b'];
+    var months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    upcoming.forEach(function(e,i){
+      var d=new Date(e.date);var att=DB.attendance.filter(function(a){return a.eventId==e._id;}).length;var col=evC[i%evC.length];
+      html+='<div style="display:flex;gap:14px;align-items:center;margin-bottom:14px;padding-bottom:14px;border-bottom:0.5px solid #f3f4f6">'
+        +'<div style="min-width:52px;height:52px;background:'+col+'15;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;border:1.5px solid '+col+'30">'
+        +'<div style="font-size:20px;font-weight:800;color:'+col+';line-height:1">'+d.getDate()+'</div>'
+        +'<div style="font-size:10px;font-weight:600;color:'+col+';text-transform:uppercase">'+months[d.getMonth()]+'</div></div>'
+        +'<div style="flex:1"><div style="font-weight:600;font-size:13px">'+e.title+'</div>'
+        +'<div style="font-size:11px;color:var(--t3);margin-top:2px">📍 '+(e.location||'TBD')+'</div>'
+        +'<div style="margin-top:4px"><span style="background:'+col+'15;color:'+col+';font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">'+att+' attending</span></div>'
+        +'</div></div>';
+    });
+  } else { html+='<div class="empty">No upcoming events</div>'; }
+  html+='</div></div>';
+  // Sector
+  html+='<div style="background:#fff;border-radius:16px;border:0.5px solid var(--b);overflow:hidden">'
+    +'<div style="padding:14px 18px;border-bottom:0.5px solid var(--b);display:flex;align-items:center;gap:8px"><span style="font-size:15px">🏢</span><span style="font-weight:700;font-size:13px">Sector Distribution</span></div>'
+    +'<div style="padding:16px 18px">';
+  Object.entries(bySec).sort(function(a,b){return b[1]-a[1];}).forEach(function(e,i){
+    var pct=Math.round(e[1]/Math.max(DB.alumni.length,1)*100);var col=secColors[i%secColors.length];
+    html+='<div style="margin-bottom:12px">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'
+      +'<span style="font-size:12px;font-weight:600;color:var(--t)">'+e[0]+'</span>'
+      +'<span style="font-size:11px;font-weight:700;color:'+col+'">'+e[1]+' <span style="color:var(--t3);font-weight:400">('+pct+'%)</span></span></div>'
+      +'<div style="height:8px;background:#f3f4f6;border-radius:6px;overflow:hidden">'
+      +'<div style="height:100%;width:'+pct+'%;background:'+col+';border-radius:6px"></div></div></div>';
+  });
+  html+='</div></div></div>';
+  return html;
+}
+
+
+// ══ ALUMNI DIRECTORY ═════════════════════════════════════════
+function renderAlumni(){
+  var data=DB.alumni.slice();
+  if(SQ){var q=SQ.toLowerCase();data=data.filter(function(a){return[a['Name of the alumni'],a['Roll No'],a['Organization/Institute/University'],a['Designation'],a['City'],a['YOG']+'',a['Course']].join(' ').toLowerCase().indexOf(q)>=0;});}
+  data.sort(function(a,b){return((a[SORT.col]||'')>(b[SORT.col]||'')?1:-1)*SORT.dir;});
+  var tot=data.length,st=(PAGE-1)*PER,pg=data.slice(st,st+PER);
+
+
+  // View mode toggle state (default: list)
+  var vm = window._alumniView || 'list';
+
+
+  var html='';
+
+
+  // ── Top bar ──
+  html+='<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">'
+    // Search
+    +'<div style="flex:1;display:flex;align-items:center;gap:10px;background:#fff;border:0.5px solid rgba(0,0,0,0.12);border-radius:12px;padding:10px 16px;box-shadow:0 1px 4px rgba(0,0,0,0.04)">'
+    +'<svg width="15" height="15" viewBox="0 0 20 20" fill="none"><circle cx="9" cy="9" r="6" stroke="#9a9992" stroke-width="1.8"/><path d="M14 14l3 3" stroke="#9a9992" stroke-width="1.8" stroke-linecap="round"/></svg>'
+    +'<input style="border:none;background:transparent;color:var(--t);font-size:14px;flex:1;outline:none;font-family:var(--fn)" placeholder="Search name, roll no, company, city…" value="'+SQ+'" oninput="doSQ(this.value)">'
+    +(SQ?'<button onclick="doSQ(\'\')" style="background:none;border:none;cursor:pointer;color:var(--t3);font-size:16px;padding:0;line-height:1">×</button>':'')
+    +'</div>'
+    // Sort
+    +'<select onchange="doSort(this.value);this.value=\'\';" style="padding:9px 12px;border:0.5px solid rgba(0,0,0,0.12);border-radius:10px;background:#fff;color:var(--t);font-size:13px;font-family:var(--fn);cursor:pointer;outline:none">'
+    +'<option value="" disabled selected>Sort by…</option>'
+    +'<option value="Name of the alumni">Name A–Z</option>'
+    +'<option value="YOG">Batch Year</option>'
+    +'<option value="Designation">Designation</option>'
+    +'<option value="Organization/Institute/University">Organization</option>'
+    +'<option value="City">City</option>'
+    +'</select>'
+    // View toggle
+    +'<div style="display:flex;background:#fff;border:0.5px solid rgba(0,0,0,0.12);border-radius:10px;overflow:hidden">'
+    +'<button onclick="setAlumniView(\'list\')" style="padding:9px 13px;border:none;background:'+(vm==='list'?'#f0efe9':'transparent')+';cursor:pointer;font-size:13px;color:var(--t2);transition:all .15s" title="List view">☰</button>'
+    +'<button onclick="setAlumniView(\'card\')" style="padding:9px 13px;border:none;background:'+(vm==='card'?'#f0efe9':'transparent')+';cursor:pointer;font-size:13px;color:var(--t2);transition:all .15s" title="Card view">⊞</button>'
+    +'</div>'
+    +'</div>';
+
+
+  // ── Count bar ──
+  html+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">'
+    +'<span style="font-size:13px;color:var(--t2)"><strong style="color:var(--t)">'+tot+'</strong> alumni'+( SQ?' matching <em>"'+SQ+'"</em>':''  )+'</span>'
+    +'<div style="display:flex;align-items:center;gap:8px">'
+    +'<span style="font-size:12px;color:var(--t3)">Page '+(Math.ceil((st+1)/PER))+' of '+Math.max(1,Math.ceil(tot/PER))+'</span>'
+    +'<button onclick="downloadFilteredCSV(\'alumni\')" style="display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:9px;border:0.5px solid rgba(0,0,0,0.14);background:#fff;color:var(--t);font-size:12px;font-weight:500;cursor:pointer;font-family:var(--fn);transition:all .15s" onmouseover="this.style.background=\'#f0efe9\'" onmouseout="this.style.background=\'#fff\'">'
+    +'<svg width="13" height="13" viewBox="0 0 20 20" fill="none"><path d="M10 3v10M10 13l-4-4M10 13l4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M3 16h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
+    +'Download '+tot+' alumni'
+    +'</button>'
+    +'</div>'
+    +'</div>';
+
+
+  if(!pg.length){
+    html+='<div style="text-align:center;padding:60px 20px;background:#fff;border-radius:16px;border:0.5px solid var(--b)">'
+      +'<div style="font-size:40px;margin-bottom:12px">🔍</div>'
+      +'<div style="font-weight:600;color:var(--t);margin-bottom:6px">No alumni found</div>'
+      +'<div style="color:var(--t3);font-size:13px">Try a different search term</div>'
+      +'</div>';
+  } else if(vm==='card'){
+    // ── CARD VIEW ──
+    html+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px">';
+    pg.forEach(function(a){
+      var roll=a['Roll No'],sc2=eng(roll);
+      var ev=DB.attendance.filter(function(x){return x.alumniRoll==roll;}).length;
+      var dt=DB.donations.filter(function(d){return d.alumniRoll==roll;}).reduce(function(s,d){return s+Number(d.amount||0);},0);
+      var vst=vs(a['_lastVerified']);
+      var vstColor={due:'#dc2626',soon:'#d97706',ok:'#16a34a'}[vst];
+      var vstLabel={due:'Verify Due',soon:'Verify Soon',ok:'Verified'}[vst];
+      var c=a['_color']||'#2563eb';
+      var ini=(a['Name of the alumni']||'?').split(' ').map(function(w){return w[0]||'';}).slice(0,2).join('').toUpperCase();
+      html+='<div onclick="openProf(\''+roll+'\')" style="background:#fff;border-radius:16px;border:0.5px solid rgba(0,0,0,0.08);padding:20px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden" onmouseover="this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 8px 24px rgba(0,0,0,0.09)\'" onmouseout="this.style.transform=\'none\';this.style.boxShadow=\'none\'">'
+        // colour strip
+        +'<div style="position:absolute;top:0;left:0;right:0;height:3px;background:'+c+'"></div>'
+        // Header
+        +'<div style="display:flex;align-items:flex-start;gap:13px;margin-top:4px">'
+        +'<div style="width:46px;height:46px;border-radius:14px;background:'+c+'18;color:'+c+';display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;flex-shrink:0">'+ini+'</div>'
+        +'<div style="flex:1;min-width:0">'
+        +'<div style="font-weight:700;font-size:14px;color:var(--t);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+a['Name of the alumni']+'</div>'
+        +'<div style="font-size:11px;color:var(--t3);margin-top:1px">'+a['Roll No']+' &nbsp;·&nbsp; '+a['YOG']+'</div>'
+        +'</div>'
+        +'<div style="width:8px;height:8px;border-radius:50%;background:'+vstColor+';margin-top:4px;flex-shrink:0;box-shadow:0 0 6px '+vstColor+'66" title="'+vstLabel+'"></div>'
+        +'</div>'
+        // Designation & org
+        +'<div style="margin-top:14px;padding-top:14px;border-top:0.5px solid rgba(0,0,0,0.06)">'
+        +'<div style="font-size:13px;font-weight:600;color:var(--t);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(a['Designation']||'—')+'</div>'
+        +'<div style="font-size:12px;color:var(--t2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(a['Organization/Institute/University']||'—')+'</div>'
+        +'</div>'
+        // Location + sector
+        +'<div style="display:flex;align-items:center;gap:6px;margin-top:10px;flex-wrap:wrap">'
+        +(a['City']||a['Country']?'<span style="font-size:11px;color:var(--t3);display:flex;align-items:center;gap:3px"><svg width="10" height="10" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="8" r="3.5" stroke="#9a9992" stroke-width="1.8"/><path d="M10 3C7.24 3 5 5.24 5 8c0 4.25 5 9 5 9s5-4.75 5-9c0-2.76-2.24-5-5-5z" stroke="#9a9992" stroke-width="1.5" fill="none"/></svg>'
+        +[a['City'],a['Country']].filter(Boolean).join(', ')+'</span>':'')
+        +(a['Sector']?'<span style="padding:2px 9px;border-radius:20px;font-size:10px;font-weight:600;background:'+c+'15;color:'+c+'">'+a['Sector']+'</span>':'')
+        +'</div>'
+        // Footer stats
+        +'<div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding-top:12px;border-top:0.5px solid rgba(0,0,0,0.06)">'
+        // Engagement
+        +'<div>'
+        +'<div style="font-size:9px;color:var(--t3);margin-bottom:3px">Engagement</div>'
+        +'<div style="display:flex;align-items:center;gap:4px">'
+        +'<div style="height:4px;width:40px;background:#f0efe9;border-radius:4px;overflow:hidden"><div style="height:100%;width:'+sc2+'%;background:linear-gradient(90deg,'+c+','+c+'88);border-radius:4px"></div></div>'
+        +'<span style="font-size:10px;color:var(--t3)">'+sc2+'</span>'
+        +'</div></div>'
+        // Profile %
+        +'<div style="text-align:right">'
+        +'<div style="font-size:9px;color:var(--t3);margin-bottom:3px">Profile</div>'
+        +'<div style="display:flex;align-items:center;gap:4px">'
+        +profPctBar(profPct(a),40,4)
+        +'<span style="font-size:10px;font-weight:600;color:'+profPctColor(profPct(a))+'">'+profPct(a)+'%</span>'
+        +'</div></div>'
+        +'</div>'
+        +'</div>';
+    });
+    html+='</div>';
+  } else {
+    // ── LIST VIEW (premium redesign) ──
+    html+='<div style="background:#fff;border-radius:16px;border:0.5px solid rgba(0,0,0,0.08);overflow:hidden;box-shadow:0 1px 6px rgba(0,0,0,0.04)">';
+    pg.forEach(function(a,idx){
+      var roll=a['Roll No'],sc2=eng(roll);
+      var ev=DB.attendance.filter(function(x){return x.alumniRoll==roll;}).length;
+      var dt=DB.donations.filter(function(d){return d.alumniRoll==roll;}).reduce(function(s,d){return s+Number(d.amount||0);},0);
+      var vst=vs(a['_lastVerified']);
+      var vstColor={due:'#dc2626',soon:'#d97706',ok:'#16a34a'}[vst];
+      var vstLabel={due:'⚠ Verify Due',soon:'⏳ Soon',ok:'✓ Verified'}[vst];
+      var vstBg={due:'#fef2f2',soon:'#fffbeb',ok:'#f0fdf4'}[vst];
+      var c=a['_color']||'#2563eb';
+      var ini=(a['Name of the alumni']||'?').split(' ').map(function(w){return w[0]||'';}).slice(0,2).join('').toUpperCase();
+      html+='<div onclick="openProf(\''+roll+'\')" style="display:flex;align-items:center;gap:16px;padding:14px 20px;border-bottom:'+(idx<pg.length-1?'0.5px solid rgba(0,0,0,0.06)':'none')+';cursor:pointer;transition:background .15s" onmouseover="this.style.background=\'#fafafa\'" onmouseout="this.style.background=\'transparent\'">'
+        // Colour indicator
+        +'<div style="width:3px;height:40px;border-radius:4px;background:'+c+';flex-shrink:0"></div>'
+        // Avatar
+        +'<div style="width:40px;height:40px;border-radius:12px;background:'+c+'18;color:'+c+';display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;flex-shrink:0">'+ini+'</div>'
+        // Name + email
+        +'<div style="min-width:180px;max-width:200px">'
+        +'<div style="font-weight:600;font-size:14px;color:var(--t)">'+a['Name of the alumni']+'</div>'
+        +'<div style="font-size:11px;color:var(--t3);margin-top:1px">'+(a['IITGn Email']||a['Roll No'])+'</div>'
+        +'</div>'
+        // Batch + course pill
+        +'<div style="display:flex;flex-direction:column;gap:3px;min-width:90px">'
+        +'<span style="font-size:12px;font-weight:700;color:var(--t)">'+a['YOG']+'</span>'
+        +'<span style="font-size:11px;color:var(--t3)">'+( a['Course']||'—' )+'</span>'
+        +'</div>'
+        // Designation + org
+        +'<div style="flex:1;min-width:0">'
+        +'<div style="font-size:13px;font-weight:500;color:var(--t);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(a['Designation']||'—')+'</div>'
+        +'<div style="font-size:12px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px">'+(a['Organization/Institute/University']||'—')+'</div>'
+        +'</div>'
+        // Location
+        +'<div style="min-width:120px;text-align:right">'
+        +'<div style="font-size:12px;color:var(--t2)">'+[a['City'],a['Country']].filter(Boolean).join(', ')+'</div>'
+        +(a['Sector']?'<div style="margin-top:3px"><span style="font-size:10px;font-weight:600;background:'+c+'15;color:'+c+';padding:2px 8px;border-radius:20px">'+a['Sector']+'</span></div>':'')
+        +'</div>'
+        // Engagement + Profile %
+        +'<div style="min-width:130px;text-align:center">'
+        +'<div style="display:flex;gap:8px;align-items:center;justify-content:center;margin-bottom:4px">'
+        // Engagement bar
+        +'<div style="text-align:center">'
+        +'<div style="font-size:9px;color:var(--t3);margin-bottom:2px">Engagement</div>'
+        +'<div style="display:flex;align-items:center;gap:3px">'
+        +profPctBar(sc2,44,4)
+        +'<span style="font-size:10px;color:var(--t3)">'+sc2+'</span>'
+        +'</div></div>'
+        +'</div>'
+        // Profile %
+        +'<div style="text-align:center">'
+        +'<div style="font-size:9px;color:var(--t3);margin-bottom:2px">Profile</div>'
+        +'<div style="display:flex;align-items:center;gap:3px;justify-content:center">'
+        +profPctBar(profPct(a),44,4)
+        +'<span style="font-size:10px;color:'+profPctColor(profPct(a))+'">'+profPct(a)+'%</span>'
+        +'</div></div>'
+        +'</div>'
+        // Verify status
+        +'<div style="min-width:96px;text-align:center" onclick="event.stopPropagation()">'
+        +'<span style="padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;background:'+vstBg+';color:'+vstColor+'">'+vstLabel+'</span>'
+        +'</div>'
+        // Actions
+        +'<div style="display:flex;gap:6px;flex-shrink:0" onclick="event.stopPropagation()">'
+        +'<button onclick="openProf(\''+roll+'\')" style="padding:6px 14px;border-radius:8px;border:0.5px solid rgba(0,0,0,0.12);background:#fff;color:var(--t);font-size:12px;font-weight:500;cursor:pointer;font-family:var(--fn);transition:all .15s" onmouseover="this.style.background=\'#f0efe9\'" onmouseout="this.style.background=\'#fff\'">View</button>'
+        +'<button onclick="openJC(\''+roll+'\')" style="padding:6px 10px;border-radius:8px;border:0.5px solid rgba(0,0,0,0.12);background:#fff;color:var(--t2);font-size:12px;cursor:pointer;font-family:var(--fn);transition:all .15s" title="Log change" onmouseover="this.style.background=\'#f0efe9\'" onmouseout="this.style.background=\'#fff\'">↺</button>'
+        +'<button onclick="delAlumni(\''+roll+'\')" style="padding:6px 10px;border-radius:8px;border:0.5px solid #fecaca;background:#fef2f2;color:#dc2626;font-size:12px;cursor:pointer;font-family:var(--fn)" title="Delete">✕</button>'
+        +'</div>'
+        +'</div>';
+    });
+    html+='</div>';
+  }
+
+
+  // ── Pagination ──
+  var totalPages=Math.ceil(tot/PER);
+  if(totalPages>1){
+    html+='<div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:18px">';
+    if(PAGE>1) html+='<button onclick="goPage('+(PAGE-1)+')" style="padding:7px 14px;border-radius:9px;border:0.5px solid rgba(0,0,0,0.12);background:#fff;color:var(--t);font-size:13px;cursor:pointer;font-family:var(--fn)">← Prev</button>';
+    for(var i=1;i<=totalPages;i++){
+      var active=i===PAGE;
+      html+='<button onclick="goPage('+i+')" style="width:34px;height:34px;border-radius:9px;border:0.5px solid '+(active?'var(--ac)':'rgba(0,0,0,0.12)')+';background:'+(active?'var(--ac)':'#fff')+';color:'+(active?'#fff':'var(--t)')+';font-size:13px;font-weight:'+(active?'600':'400')+';cursor:pointer;font-family:var(--fn)">'+i+'</button>';
+    }
+    if(PAGE<totalPages) html+='<button onclick="goPage('+(PAGE+1)+')" style="padding:7px 14px;border-radius:9px;border:0.5px solid rgba(0,0,0,0.12);background:#fff;color:var(--t);font-size:13px;cursor:pointer;font-family:var(--fn)">Next →</button>';
+    html+='</div>';
+  }
+
+
+  return html;
+}
+
+
+function setAlumniView(v){
+  window._alumniView=v;
+  render();
+}
+
+
+// ══ ADVANCED SEARCH ══════════════════════════════════════════
+function renderSearch(){
+  var data=AI_MODE==='ai'&&AI_RESULT
+    ? (function(){var rs={};AI_RESULT.rolls.forEach(function(r){rs[r]=true;});return DB.alumni.filter(function(a){return rs[a['Roll No']];});})()
+    : applyManualFilters();
+
+
+  var yogs=Array.from(new Set(DB.alumni.map(function(a){return a['YOG'];}))).sort();
+  var secs=Array.from(new Set(DB.alumni.map(function(a){return a['Sector'];}).filter(Boolean))).sort();
+  var courses=Array.from(new Set(DB.alumni.map(function(a){return a['Course'];}).filter(Boolean))).sort();
+  var html='';
+
+
+  // ── Mode toggle: Manual first ──
+  html+='<div style="display:flex;gap:3px;background:var(--sur2);padding:3px;border-radius:10px;margin-bottom:16px;width:fit-content">'
+    +'<div onclick="switchMode(\'manual\')" style="padding:6px 18px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:500;'+(AI_MODE==='manual'?'background:var(--sur);color:var(--t);box-shadow:0 1px 3px rgba(0,0,0,.08)':'color:var(--t2)')+'">'
+    +'🔧 Manual Filters</div>'
+    +'<div onclick="switchMode(\'ai\')" style="padding:6px 18px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:500;'+(AI_MODE==='ai'?'background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff':'color:var(--t2)')+'">'
+    +'🤖 Devender\'s AI</div>'
+    +'</div>';
+
+
+  // ── MANUAL PANEL ──
+  if(AI_MODE==='manual'){
+    html+='<div style="background:var(--sur);border:0.5px solid var(--b);border-radius:14px;padding:18px;margin-bottom:16px">'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">'
+      +'<div class="fitem"><label>Name</label><input id="mf-name" placeholder="Search by name…" value="'+(AF.name||'')+'" oninput="dbF(\'name\',this.value)"></div>'
+      +'<div class="fitem"><label>Roll No</label><input id="mf-roll" placeholder="22BCS001" value="'+(AF.roll||'')+'" oninput="dbF(\'roll\',this.value)"></div>'
+      +'<div class="fitem"><label>Year of Graduation</label><select onchange="fNow(\'yog\',this.value)"><option value="">All Years</option>'
+      +yogs.map(function(y){return '<option value="'+y+'"'+(AF.yog==y?' selected':'')+'>'+y+'</option>';}).join('')+'</select></div>'
+      +'</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">'
+      +'<div class="fitem"><label>Course</label><select onchange="fNow(\'course\',this.value)"><option value="">All Courses</option>'
+      +courses.map(function(c){return '<option value="'+c+'"'+(AF.course===c?' selected':'')+'>'+c+'</option>';}).join('')+'</select></div>'
+      +'<div class="fitem"><label>Sector</label><select onchange="fNow(\'sector\',this.value)"><option value="">All Sectors</option>'
+      +secs.map(function(s){return '<option value="'+s+'"'+(AF.sector===s?' selected':'')+'>'+s+'</option>';}).join('')+'</select></div>'
+      +'<div class="fitem"><label>Organization / Institute</label><input id="mf-org" placeholder="Google, IIT Bombay…" value="'+(AF.org||'')+'" oninput="dbF(\'org\',this.value)"></div>'
+      +'</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">'
+      +'<div class="fitem"><label>City</label><input id="mf-city" placeholder="Mumbai, Bangalore…" value="'+(AF.city||'')+'" oninput="dbF(\'city\',this.value)"></div>'
+      +'<div class="fitem"><label>Country</label><input id="mf-country" placeholder="India, USA…" value="'+(AF.country||'')+'" oninput="dbF(\'country\',this.value)"></div>'
+      +'<div class="fitem"><label>Keyword (searches everything)</label><input id="mf-kw" placeholder="PhD, senior, founder…" value="'+(AF.kw||'')+'" oninput="dbF(\'kw\',this.value)"></div>'
+      +'</div>'
+      // Profile % and Engagement Score filters
+      +'<div style="border-top:0.5px solid var(--b);padding-top:12px;margin-bottom:14px">'
+      +'<div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">📊 Score Filters</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px">'
+      +'<div class="fitem"><label>Profile % Min</label>'
+      +'<select onchange="fNow(\'minPct\',this.value)"><option value="">Any</option>'
+      +'<option value="25"'+(AF.minPct=='25'?' selected':'')+'>25%+</option>'
+      +'<option value="50"'+(AF.minPct=='50'?' selected':'')+'>50%+</option>'
+      +'<option value="75"'+(AF.minPct=='75'?' selected':'')+'>75%+</option>'
+      +'<option value="90"'+(AF.minPct=='90'?' selected':'')+'>90%+</option>'
+      +'</select></div>'
+      +'<div class="fitem"><label>Profile % Max</label>'
+      +'<select onchange="fNow(\'maxPct\',this.value)"><option value="">Any</option>'
+      +'<option value="25"'+(AF.maxPct=='25'?' selected':'')+'>Up to 25%</option>'
+      +'<option value="50"'+(AF.maxPct=='50'?' selected':'')+'>Up to 50%</option>'
+      +'<option value="75"'+(AF.maxPct=='75'?' selected':'')+'>Up to 75%</option>'
+      +'</select></div>'
+      +'<div class="fitem"><label>Engagement Score Min</label>'
+      +'<select onchange="fNow(\'minEng\',this.value)"><option value="">Any</option>'
+      +'<option value="1"'+(AF.minEng=='1'?' selected':'')+'>Has any score</option>'
+      +'<option value="25"'+(AF.minEng=='25'?' selected':'')+'>25+</option>'
+      +'<option value="50"'+(AF.minEng=='50'?' selected':'')+'>50+</option>'
+      +'<option value="75"'+(AF.minEng=='75'?' selected':'')+'>75+</option>'
+      +'</select></div>'
+      +'<div class="fitem"><label>Engagement Score Max</label>'
+      +'<select onchange="fNow(\'maxEng\',this.value)"><option value="">Any</option>'
+      +'<option value="25"'+(AF.maxEng=='25'?' selected':'')+'>Up to 25</option>'
+      +'<option value="50"'+(AF.maxEng=='50'?' selected':'')+'>Up to 50</option>'
+      +'<option value="75"'+(AF.maxEng=='75'?' selected':'')+'>Up to 75</option>'
+      +'</select></div>'
+      +'</div></div>'
+      +'<div style="display:flex;align-items:center;gap:8px">'
+      +'<span id="mf-count" style="font-size:13px;font-weight:600;color:var(--t)">'+data.length+' alumni found</span>'
+      +'<span style="font-size:12px;color:var(--t3)">of '+DB.alumni.length+' total</span>'
+      +'<button class="btn sm" onclick="clearAF()" style="margin-left:auto">✕ Clear All</button>'
+      +'</div>'
+      +'</div>';
+  }
+
+
+  // ── DEVENDER'S AI PANEL ──
+  if(AI_MODE==='ai'){
+    html+='<style>'
+      +'.dai-wrap{background:#0f0f14;border-radius:20px;overflow:hidden;margin-bottom:20px;}'
+      +'.dai-header{background:linear-gradient(135deg,#1a1040 0%,#0f0f14 100%);padding:28px 28px 22px;border-bottom:1px solid #ffffff0f;}'
+      +'.dai-orb{width:52px;height:52px;border-radius:16px;background:linear-gradient(135deg,#6366f1,#a855f7,#ec4899);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;box-shadow:0 0 24px #6366f155}'
+      +'.dai-title{font-size:20px;font-weight:800;color:#fff;letter-spacing:-0.5px}'
+      +'.dai-sub{font-size:12px;color:#ffffff55;margin-top:2px;font-style:italic}'
+      +'.dai-body{padding:22px 28px 28px}'
+      +'.dai-input-wrap{display:flex;gap:10px;align-items:center;background:#1a1a26;border:1px solid #6366f133;border-radius:14px;padding:6px 6px 6px 18px;transition:border-color .2s}'
+      +'.dai-input-wrap:focus-within{border-color:#6366f199}'
+      +'.dai-input{flex:1;background:transparent;border:none;outline:none;color:#fff;font-size:14px;font-family:var(--fn);padding:8px 0}'
+      +'.dai-input::placeholder{color:#ffffff33}'
+      +'.dai-btn{padding:10px 20px;background:linear-gradient(135deg,#6366f1,#a855f7);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:var(--fn);transition:opacity .15s}'
+      +'.dai-btn:hover{opacity:.9}'
+      +'.dai-btn:disabled{opacity:.5;cursor:not-allowed}'
+      +'.dai-chip{padding:5px 13px;background:#ffffff0a;border:1px solid #ffffff15;border-radius:20px;font-size:11px;color:#a0a8c0;cursor:pointer;font-family:var(--fn);transition:all .15s}'
+      +'.dai-chip:hover{background:#6366f122;border-color:#6366f155;color:#a5b4fc}'
+      +'.dai-thinking{display:flex;align-items:center;gap:12px;padding:16px 0;color:#a5b4fc;font-size:13px}'
+      +'.dai-dots{display:flex;gap:4px}'
+      +'.dai-dot{width:6px;height:6px;border-radius:50%;background:#6366f1;animation:daiPulse 1.2s infinite}'
+      +'.dai-dot:nth-child(2){animation-delay:.2s}'
+      +'.dai-dot:nth-child(3){animation-delay:.4s}'
+      +'@keyframes daiPulse{0%,100%{opacity:.3;transform:scale(.8)}50%{opacity:1;transform:scale(1)}}'
+      +'.dai-response{background:#1a1a26;border:1px solid #6366f133;border-radius:12px;padding:16px 18px;margin-top:16px}'
+      +'.dai-response-label{font-size:10px;font-weight:700;color:#6366f1;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:6px}'
+      +'.dai-response-label::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:#6366f1;box-shadow:0 0 6px #6366f1}'
+      +'.dai-response-text{font-size:13px;color:#c8cfe0;line-height:1.7}'
+      +'.dai-clear{margin-top:12px;padding:5px 14px;background:transparent;border:1px solid #ffffff15;border-radius:6px;font-size:11px;color:#ffffff44;cursor:pointer;font-family:var(--fn);transition:all .15s}'
+      +'.dai-clear:hover{border-color:#ffffff33;color:#ffffff88}'
+      +'.dai-empty{text-align:center;padding:44px 20px}'
+      +'.dai-empty-icon{font-size:44px;margin-bottom:14px;filter:drop-shadow(0 0 16px #6366f188)}'
+      +'.dai-empty-title{font-size:16px;font-weight:700;color:#fff;margin-bottom:6px}'
+      +'.dai-empty-sub{font-size:13px;color:#ffffff44}'
+      +'</style>'
+
+
+      +'<div class="dai-wrap">'
+      // Header
+      +'<div class="dai-header">'
+      +'<div style="display:flex;align-items:center;gap:16px">'
+      +'<div class="dai-orb">✦</div>'
+      +'<div>'
+      +'<div class="dai-title">Devender\'s AI</div>'
+      +'<div class="dai-sub">Alumni Intelligence · Ask anything</div>'
+      +'</div>'
+      +'<div style="margin-left:auto;display:flex;align-items:center;gap:6px">'
+      +'<div style="width:7px;height:7px;border-radius:50%;background:#22c55e;box-shadow:0 0 6px #22c55e"></div>'
+      +'<span style="font-size:11px;color:#ffffff44">Active</span>'
+      +'</div>'
+      +'</div>'
+      +'</div>'
+
+
+      // Body
+      +'<div class="dai-body">'
+      // Input
+      +'<div class="dai-input-wrap">'
+      +'<input id="ai-q" class="dai-input" placeholder="Ask me about your alumni…" '
+      +'value="'+(AI_QUERY||'')+'" onkeydown="if(event.key===\'Enter\')runAISearch()">'
+      +'<button class="dai-btn" onclick="runAISearch()" '+(AI_LOADING?'disabled':'')+'>'
+      +(AI_LOADING
+        ?'<span style="display:inline-flex;align-items:center;gap:7px"><span style="width:11px;height:11px;border:2px solid #ffffff44;border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block"></span>Thinking…</span>'
+        :'Ask →')
+      +'</button>'
+      +'</div>'
+
+
+      // Suggestion chips
+      +'<div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:14px">'
+      +['Alumni at Google','Professors at IITs','Entrepreneurs from Gujarat','Batch 2020 outside India','Senior engineers in Bangalore','Most engaged alumni','Alumni in healthcare','Founders and CEOs'].map(function(q){
+        return '<button class="dai-chip" onclick="quickAI(\''+q+'\')">'+q+'</button>';
+      }).join('')
+      +'</div>'
+
+
+      // Thinking state
+      +(AI_LOADING
+        ?'<div class="dai-thinking"><div class="dai-dots"><div class="dai-dot"></div><div class="dai-dot"></div><div class="dai-dot"></div></div><span>Devender\'s AI is searching your alumni…</span></div>'
+        :'')
+
+
+      // Response
+      +(AI_RESULT&&!AI_LOADING
+        ?'<div class="dai-response">'
+          +'<div class="dai-response-label">Devender\'s AI</div>'
+          +'<div class="dai-response-text">'+AI_RESULT.summary+'</div>'
+          +'<button class="dai-clear" onclick="clearAIResult()">✕ Clear</button>'
+          +'</div>'
+        :'')
+
+
+      // Empty state
+      +(!AI_RESULT&&!AI_LOADING
+        ?'<div class="dai-empty">'
+          +'<div class="dai-empty-icon">✦</div>'
+          +'<div class="dai-empty-title">How can I help you today?</div>'
+          +'<div class="dai-empty-sub">Ask me anything about your IITGn alumni — I\'ll find them instantly</div>'
+          +'</div>'
+        :'')
+
+
+      +'</div></div>';
+
+
+    if(!AI_RESULT&&!AI_LOADING) return html;
+  }
+
+
+  // ── Results table ──
+  html+='<div id="search-results">';
+  if(data.length){
+    html+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
+      +'<span style="font-size:13px;font-weight:600;color:var(--t)">'+data.length+' alumni found</span>'
+      +'<button onclick="downloadFilteredCSV(\'search\')" style="display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:9px;border:0.5px solid rgba(0,0,0,0.14);background:#fff;color:var(--t);font-size:12px;font-weight:500;cursor:pointer;font-family:var(--fn)" onmouseover="this.style.background=\'#f0efe9\'" onmouseout="this.style.background=\'#fff\'">'
+      +'<svg width="13" height="13" viewBox="0 0 20 20" fill="none"><path d="M10 3v10M10 13l-4-4M10 13l4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M3 16h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
+      +' Download '+data.length+' alumni'
+      +'</button></div>';
+    html+='<div class="tw"><table><thead><tr>'
+      +'<th>Name</th><th>Roll No</th><th>YOG</th><th>Course</th><th>Designation</th><th>Organization</th><th>Location</th><th>Sector</th><th></th>'
+      +'</tr></thead><tbody>'
+      +data.map(function(a){
+        return '<tr onclick="openProf(\''+a['Roll No']+'\')">'
+          +'<td><div class="nr">'+av(a)+'<div><div style="font-weight:500">'+a['Name of the alumni']+'</div>'
+          +'<div style="font-size:11px;color:var(--t3)">'+(a['IITGn Email']||'')+'</div></div></div></td>'
+          +'<td>'+a['Roll No']+'</td><td>'+a['YOG']+'</td><td>'+(a['Course']||'—')+'</td>'
+          +'<td>'+(a['Designation']||'—')+'</td>'
+          +'<td>'+(a['Organization/Institute/University']||'—')+'</td>'
+          +'<td>'+[a['City'],a['Country']].filter(Boolean).join(', ')+'</td>'
+          +'<td>'+(a['Sector']?'<span class="badge '+secBadge(a['Sector'])+'">'+a['Sector']+'</span>':'—')+'</td>'
+          +'<td onclick="event.stopPropagation()"><button class="btn sm" onclick="openProf(\''+a['Roll No']+'\')">View</button></td>'
+          +'</tr>';
+      }).join('')+'</tbody></table></div>';
+  } else {
+    html+='<div class="empty" style="padding:40px">🔍 No alumni found — try adjusting your filters</div>';
+  }
+  html+='</div>';
+  return html;
+}
+
+
+// ── Apply manual filters ─────────────────────────────────────
+function applyManualFilters(){
+  return DB.alumni.filter(function(a){
+    if(AF.name   &&(a['Name of the alumni']||'').toLowerCase().indexOf(AF.name.toLowerCase())<0)return false;
+    if(AF.roll   &&(a['Roll No']||'').toLowerCase().indexOf(AF.roll.toLowerCase())<0)return false;
+    if(AF.yog    &&String(a['YOG'])!==String(AF.yog))return false;
+    if(AF.course &&a['Course']!==AF.course)return false;
+    if(AF.sector &&a['Sector']!==AF.sector)return false;
+    if(AF.org    &&(a['Organization/Institute/University']||'').toLowerCase().indexOf(AF.org.toLowerCase())<0)return false;
+    if(AF.city   &&(a['City']||'').toLowerCase().indexOf(AF.city.toLowerCase())<0)return false;
+    if(AF.country&&(a['Country']||'').toLowerCase().indexOf(AF.country.toLowerCase())<0)return false;
+    if(AF.kw){var b=Object.values(a).join(' ').toLowerCase();if(b.indexOf(AF.kw.toLowerCase())<0)return false;}
+    // Profile % filter
+    if(AF.minPct!==''||AF.maxPct!==''){
+      var pct=profPct(a);
+      if(AF.minPct!==''&&pct<Number(AF.minPct))return false;
+      if(AF.maxPct!==''&&pct>Number(AF.maxPct))return false;
+    }
+    // Engagement score filter
+    if(AF.minEng!==''||AF.maxEng!==''){
+      var es=eng(a['Roll No']);
+      if(AF.minEng!==''&&es<Number(AF.minEng))return false;
+      if(AF.maxEng!==''&&es>Number(AF.maxEng))return false;
+    }
+    return true;
+  });
+}
+
+
+// ── Debounce: waits 300ms after typing stops before filtering ─
+// This completely fixes the typing bug — page never re-renders mid-type
+var _dbt=null;
+function dbF(key,val){
+  AF[key]=val;
+  clearTimeout(_dbt);
+  _dbt=setTimeout(function(){ updateSearchTable(); },300);
+}
+
+
+// ── Dropdowns update instantly (no debounce needed) ──────────
+function fNow(key,val){
+  AF[key]=val;
+  updateSearchTable();
+}
+
+
+// ── Update ONLY the results table, never the inputs ──────────
+// This is the key fix — inputs stay focused, only results change
+function updateSearchTable(){
+  var data=applyManualFilters();
+  var countEl=gi('mf-count');
+  if(countEl)countEl.textContent=data.length+' alumni found';
+  var tbl=gi('search-results');
+  if(!tbl)return;
+  if(data.length){
+    tbl.innerHTML='<div class="tw"><table><thead><tr>'
+      +'<th>Name</th><th>Roll No</th><th>YOG</th><th>Course</th><th>Designation</th><th>Organization</th><th>Location</th><th>Sector</th><th></th>'
+      +'</tr></thead><tbody>'
+      +data.map(function(a){
+        return '<tr onclick="openProf(\''+a['Roll No']+'\')">'
+          +'<td><div class="nr">'+av(a)+'<div><div style="font-weight:500">'+a['Name of the alumni']+'</div>'
+          +'<div style="font-size:11px;color:var(--t3)">'+(a['IITGn Email']||'')+'</div></div></div></td>'
+          +'<td>'+a['Roll No']+'</td><td>'+a['YOG']+'</td><td>'+(a['Course']||'—')+'</td>'
+          +'<td>'+(a['Designation']||'—')+'</td>'
+          +'<td>'+(a['Organization/Institute/University']||'—')+'</td>'
+          +'<td>'+[a['City'],a['Country']].filter(Boolean).join(', ')+'</td>'
+          +'<td>'+(a['Sector']?'<span class="badge '+secBadge(a['Sector'])+'">'+a['Sector']+'</span>':'—')+'</td>'
+          +'<td onclick="event.stopPropagation()"><button class="btn sm" onclick="openProf(\''+a['Roll No']+'\')">View</button></td>'
+          +'</tr>';
+      }).join('')+'</tbody></table></div>';
+  } else {
+    tbl.innerHTML='<div class="empty" style="padding:40px">🔍 No alumni found — try adjusting your filters</div>';
+  }
+}
+
+
+// ══ SEARCH CONTROL FUNCTIONS ══════════════════════════════════
+function switchMode(m){
+  AI_MODE=m;
+  if(m==='ai')clearAF();
+  render();
+  if(m==='ai')setTimeout(function(){var el=gi('ai-q');if(el)el.focus();},100);
+}
+function quickAI(q){
+  AI_QUERY=q;
+  var el=gi('ai-q');if(el)el.value=q;
+  runAISearch();
+}
+function clearAIResult(){
+  AI_RESULT=null;AI_QUERY='';
+  var el=gi('ai-q');if(el)el.value='';
+  render();
+}
+async function runAISearch(){
+  var el=gi('ai-q');
+  var q=el?el.value.trim():AI_QUERY;
+  if(!q)return;
+  AI_QUERY=q;AI_LOADING=true;AI_RESULT=null;
+  render();
+  setTimeout(function(){
+    var result=smartLocalSearch(q);
+    AI_RESULT=result;AI_LOADING=false;
+    render();
+    setTimeout(function(){var inp=gi('ai-q');if(inp){inp.value=AI_QUERY;inp.focus();}},50);
+  },200);
+}
+
+
+// ══════════════════════════════════════════════════════════════
+//  DEVENDER'S AI — Ultimate Local Intelligence Engine v3.0
+//  Handles virtually any natural language query about alumni:
+//  companies, roles, locations, sectors, batches, experience,
+//  donations, events, engagement, job switches, combinations,
+//  negations, comparisons, rankings, ranges, abbreviations,
+//  Hindi/informal phrasing, typos, partial words, and more
+// ══════════════════════════════════════════════════════════════
+function smartLocalSearch(rawQuery){
+  var q = rawQuery.toLowerCase().trim();
+  var CY = new Date().getFullYear();
+
+
+  // ── Normalize: remove filler words, fix common typos ──────
+  q = q
+    .replace(/\bwhos\b/g,'who is')
+    .replace(/\bwhich all\b/g,'who')
+    .replace(/\bkitne\b/g,'how many')
+    .replace(/\bkahan\b/g,'where')
+    .replace(/\bkaun\b/g,'who')
+    .replace(/\bsab\b/g,'all')
+    .replace(/\bsabhi\b/g,'all')
+    .replace(/\bwala\b|\bwali\b|\bwale\b/g,'')
+    .replace(/\bplease\b|\bkindly\b|\bcan you\b|\bcould you\b|\bwould you\b/g,'')
+    .replace(/\bshow me\b|\btell me\b|\bgive me\b|\blist out\b|\bdisplay\b|\bget me\b/g,'find')
+    .replace(/\bworking at\b|\bemployed at\b|\bemployed in\b|\bjob at\b|\bjob in\b|\bworks at\b|\bworks in\b|\bwork at\b|\bwork in\b|\bbased at\b/g,'at')
+    .replace(/\bcurrently at\b|\bcurrently in\b|\bcurrently working\b/g,'at')
+    .replace(/\bwho are in\b|\bwho is in\b|\bwho work in\b|\bwho works in\b/g,'in')
+    .replace(/\bpeople in\b|\bpersons in\b|\bpeople at\b|\bpersons at\b/g,'alumni in')
+    .replace(/\bour alumni\b|\bmy alumni\b|\biitgn alumni\b|\biit gandhinagar alumni\b/g,'alumni')
+    .replace(/\bgone abroad\b|\bmoved abroad\b|\bsettled abroad\b|\bliving abroad\b/g,'abroad')
+    .replace(/\bpass out\b|\bpassed out\b|\bpassout\b/g,'yog')
+    .replace(/\bgrad year\b|\bgraduation year\b|\bpassing year\b/g,'yog')
+    .replace(/\bcompany\b/g,'organization')
+    .replace(/\bfirm\b/g,'organization')
+    .replace(/\binstitution\b/g,'organization')
+    .replace(/\buniversity\b/g,'organization')
+    .replace(/\bcollege\b/g,'organization')
+    .replace(/\bplace\b/g,'location')
+    .replace(/\bwhere\b/g,'location')
+    .replace(/\bno\./g,'number')
+    .replace(/\bw\/o\b/g,'without')
+    .replace(/\bw\b/g,'with');
+
+
+  // ════════════════════════════════════════════════════════════
+  //  MASTER SYNONYM DICTIONARY
+  //  Every possible way someone could refer to a concept
+  // ════════════════════════════════════════════════════════════
+  var SYN = {
+
+
+    // ── SECTORS ────────────────────────────────────────────
+    it: ['it','software','tech','technology','it / software','programming','coding','computer','developer','swe','software engineer','web','app','mobile','backend','frontend','fullstack','devops','cloud','cybersecurity','infosec','data','ml','ai','machine learning','artificial intelligence','deep learning','nlp','computer vision','blockchain','ar','vr','iot','embedded','firmware','hardware','semiconductor','chip','vlsi','fpga','robotics','automation','rpa','saas','paas','iaas'],
+    academia: ['academia','academic','professor','faculty','lecturer','teaching','instructor','iit','iim','nit','bits','iisc','iiit','niser','university','college','institute','school','education','higher education','research','phd student','postdoc','postdoctoral','research fellow','visiting faculty','adjunct','emeritus','dean','hod','head of department','vice chancellor','vc of college','provost','registrar'],
+    govt: ['government','govt','psu','public sector','ias','ips','ifs','iras','irts','ies','upsc','civil service','civil servant','civil services','bureaucrat','ministry','ministry of','department of','collector','dm','district magistrate','sdo','bdo','municipal','panchayat','state government','central government','niti aayog','planning commission','rbi','sebi','irdai','trai','bsnl','ongc','ntpc','nhpc','bpcl','hpcl','iocl','sail','bhel','hal','nalco','nmdc','coal india','railways','indian railways','air india','defence','army','navy','air force','bsf','crpf','cisf','coast guard','paramilitary','drdo','barc','dae','isro','dos'],
+    entre: ['entrepreneur','entrepreneurship','founder','co-founder','cofounder','startup','startups','own business','self employed','self-employed','bootstrapped','venture','company founder','built','started','launched','created own','running own','business owner','msme','sme','proprietor','director of own','md of own','ceo of own','cto of own','incubator','accelerator','y combinator','techstars','seedcamp','angel','seed stage','series a','series b','series c','ipo'],
+    finance: ['finance','banking','bank','investment','ca','chartered accountant','cfa','cfp','frm','actuary','fintech','nbfc','insurance','wealth management','asset management','portfolio','trading','equity','fixed income','derivatives','hedge fund','private equity','pe','venture capital','vc','investment banking','ib','corporate finance','treasury','audit','tax','compliance','risk','credit','loan','mortgage','payments','digital payments','lending','neobank'],
+    health: ['healthcare','health','doctor','medical','hospital','pharma','pharmaceutical','medicine','clinic','mbbs','md','ms','dds','bds','nursing','nurse','physiotherapy','dentist','surgeon','cardiologist','neurologist','oncologist','pediatrician','psychiatrist','radiologist','pathologist','lab','diagnostic','biotech','biotechnology','life sciences','clinical','trials','research hospital','aiims','pgi','nimhans','tata memorial','medtech','healthtech','medtronics','abbott'],
+    research: ['research','researcher','scientist','lab','laboratory','r&d','research and development','phd','postdoc','fellow','national lab','research institute','think tank','tifr','icts','rri','imsc','hbcse','ncl','iicb','cdfd','jncasr','snbncbs','scientific officer','technical officer','dsr','dsir','dst','dbt','csir'],
+    higher: ['higher studies','ms','m.s.','mtech','m.tech','mba','phd','ph.d','masters','master of','pursuing','studying','enrolled','full time student','grad school','graduate school','graduate student','fellowship','scholarship','fulbright','gates cambridge','rhodes','chevening','erasmus'],
+    mfg: ['manufacturing','industry','factory','plant','production','operations','supply chain','logistics','procurement','quality','lean','six sigma','automotive','automobile','tata motors','maruti','hyundai','mahindra','bajaj','honda','toyota','ford','suzuki','fmcg','consumer goods','retail','real estate','construction','infrastructure','power','energy','oil gas','petroleum','chemicals','textiles','apparel','food processing','agriculture','agritech'],
+    consult: ['consulting','consultant','advisory','advisor','strategy','mckinsey','bcg','boston consulting','bain','deloitte','pwc','kpmg','ey','ernst young','accenture','strategy&','roland berger','monitor','oliver wyman','marsh','aon','mercer','towers watson','management consulting','it consulting','technology consulting'],
+    legal: ['lawyer','advocate','attorney','legal','solicitor','barrister','law','llb','llm','judge','court','litigation','corporate law','ip law','patent','trademark','compliance officer','legal counsel','general counsel','gc'],
+    design: ['designer','design','ux','ui','ux/ui','product design','graphic design','visual design','interaction design','design thinking','figma','sketch','adobe xd','industrial design','architecture','architect','urban planning'],
+    media: ['media','journalism','journalist','reporter','editor','content','writer','blogger','youtuber','influencer','social media','marketing','digital marketing','advertising','pr','public relations','communications','branding','publishing','film','television','radio','podcast'],
+    ngo: ['ngo','nonprofit','non-profit','not for profit','social work','social sector','development sector','csr','philanthropy','foundation','trust','charity','volunteer','activist','civil society'],
+
+
+    // ── SENIORITY & CAREER LEVEL ────────────────────────────
+    senior: ['senior','lead','head','director','vp','vice president','svp','evp','chief','cto','ceo','coo','cfo','cpo','ciso','cdo','cro','chro','cmo','principal','manager','president','founder','co-founder','partner','general manager','gm','associate director','deputy director','executive director','managing director','md','group head','global head','regional head','country head','business head','practice head','senior manager','senior director','senior vp'],
+    junior: ['junior','intern','internship','fresher','entry level','entry-level','graduate trainee','trainee','associate','analyst','assistant','executive','junior engineer','software engineer i','sde1','grade 1','level 1','new joiner','campus hire','placement'],
+    mid: ['software engineer','sde2','sde3','senior engineer','staff engineer','principal engineer','engineer ii','engineer iii','specialist','consultant level','manager','associate manager','deputy manager'],
+
+
+    // ── SPECIFIC ROLES ──────────────────────────────────────
+    professor: ['professor','asst professor','assistant professor','assoc professor','associate professor','full professor','visiting professor','adjunct professor','emeritus professor','faculty','lecturer','sr lecturer','senior lecturer','reader','teaching assistant','ta','ra','research assistant'],
+    engineer: ['engineer','engineering','software engineer','data engineer','ml engineer','ai engineer','devops engineer','sre','site reliability','platform engineer','infrastructure engineer','network engineer','hardware engineer','electrical engineer','mechanical engineer','civil engineer','chemical engineer','systems engineer','embedded engineer','firmware engineer','backend engineer','frontend engineer','fullstack engineer','mobile engineer','android engineer','ios engineer','qa engineer','test engineer','sdet'],
+    scientist: ['scientist','data scientist','research scientist','applied scientist','staff scientist','principal scientist','distinguished scientist','research engineer','ai researcher','ml researcher','computational scientist'],
+    manager: ['manager','product manager','program manager','project manager','engineering manager','em','tech lead','tl','account manager','business manager','delivery manager','service delivery','client partner','engagement manager'],
+    analyst: ['analyst','business analyst','data analyst','financial analyst','market analyst','research analyst','investment analyst','credit analyst','risk analyst','quantitative analyst','quant'],
+    doctor: ['doctor','physician','mbbs','md','ms surgeon','surgeon','specialist','consultant doctor','medical officer','mo','cmo'],
+
+
+    // ── FAMOUS COMPANIES (exhaustive) ───────────────────────
+    google: ['google','alphabet','deepmind','waymo','google research','google x','verily','sidewalk labs','google cloud','youtube','google maps','google brain','google ai','google labs'],
+    microsoft: ['microsoft','azure','msft','linkedin','github','xbox','activision','blizzard','microsoft research','teams','office 365','visual studio'],
+    amazon: ['amazon','aws','amazon web services','amzn','alexa','twitch','whole foods','amazon prime','amazon labs','a9','amazon robotics','zoox'],
+    meta: ['meta','facebook','instagram','whatsapp','oculus','reality labs','meta ai','meta research','facebook research'],
+    apple: ['apple','apple inc','ios','macos','apple research','siri'],
+    netflix: ['netflix','nflx'],
+    uber: ['uber','uber eats','uber freight','aurora','autonomous'],
+    airbnb: ['airbnb'],
+    twitter: ['twitter','x corp','x.com'],
+    linkedin: ['linkedin'],
+    salesforce: ['salesforce','tableau','mulesoft','slack','heroku'],
+    adobe: ['adobe','adobe research','figma'],
+    oracle: ['oracle','netsuite','sun microsystems'],
+    ibm: ['ibm','ibm research','red hat','watson','cognitive systems'],
+    intel: ['intel','intel labs','mobileye'],
+    nvidia: ['nvidia','cuda','nvidiaresearch'],
+    qualcomm: ['qualcomm','snapdragon'],
+    amd: ['amd','advanced micro devices'],
+    tcs: ['tcs','tata consultancy','tata consultancy services','tcs research'],
+    infosys: ['infosys','infy','infosys labs','infosys bpm'],
+    wipro: ['wipro','wipro technologies'],
+    hcl: ['hcl','hcl technologies','hcltech'],
+    cognizant: ['cognizant','ctsh'],
+    tech_mahindra: ['tech mahindra','techm'],
+    accenture: ['accenture','accenture technology','accenture labs'],
+    capgemini: ['capgemini'],
+    mphasis: ['mphasis'],
+    ltimindtree: ['lti','ltimindtree','l&t infotech','mindtree'],
+    hexaware: ['hexaware'],
+    flipkart: ['flipkart','walmart','myntra','jabong','phonepe'],
+    amazon_india: ['amazon india'],
+    zomato: ['zomato','blinkit','grofers'],
+    swiggy: ['swiggy','instamart'],
+    ola: ['ola','ola electric','ola cabs','ola money'],
+    paytm: ['paytm','one97','paytm money','paytm bank'],
+    razorpay: ['razorpay'],
+    phonepe: ['phonepe'],
+    groww: ['groww'],
+    zerodha: ['zerodha','kite','coin'],
+    cred: ['cred'],
+    meesho: ['meesho'],
+    byju: ["byjus","byju's","byju","think and learn","aakash","great learning","toppr"],
+    unacademy: ['unacademy','graphy'],
+    vedantu: ['vedantu'],
+    freshworks: ['freshworks','freshdesk','freshsales'],
+    zoho: ['zoho','zohocrm'],
+    chargebee: ['chargebee'],
+    browserstack: ['browserstack'],
+    postman: ['postman'],
+    hasura: ['hasura'],
+    setu: ['setu'],
+    clevertap: ['clevertap'],
+    moengage: ['moengage'],
+    nykaa: ['nykaa','fsg','fashion store'],
+    cars24: ['cars24'],
+    oyo: ['oyo','oyo rooms'],
+    lenskart: ['lenskart'],
+    mamaearth: ['mamaearth','honasa'],
+    boat: ['boat','imagine marketing'],
+    spinny: ['spinny'],
+    urban_company: ['urban company','urbanclap'],
+    iit: ['iit','indian institute of technology','iit bombay','iit delhi','iit madras','iit kharagpur','iit kanpur','iit roorkee','iit guwahati','iit hyderabad','iit gandhinagar','iitgn','iit jodhpur','iit mandi','iit patna','iit varanasi','iit bhu','iit tirupati','iit palakkad','iit dharwad','iit bhilai','iit jammu','iit dharwad'],
+    iim: ['iim','indian institute of management','iima','iimb','iimc','iiml','iimk','iimi','iimn','iimr','iims','iimudaipur','iimvisakhapatnam'],
+    iisc: ['iisc','indian institute of science','iisc bangalore'],
+    nit: ['nit','national institute of technology','nitw','nitk','nitt','nitt','nitr','nit surathkal','nit trichy','nit warangal','nit rourkela','nit calicut'],
+    bits: ['bits','bits pilani','bits goa','bits hyderabad','bitsians','pilani'],
+    iiit: ['iiit','iiit hyderabad','iiit delhi','iiitb','iiit bangalore','iiit allahabad'],
+    isro: ['isro','indian space research','space agency','vikram sarabhai','satish dhawan','shar','vssc','sac','nrsc','iisu','lpsc','ursc','scl','narl','space department'],
+    drdo: ['drdo','defence research','drdl','dmrl','dipr','desidoc','deal','hemrl','arde','cfees','cair','debel'],
+    barc: ['barc','bhabha atomic','nuclear','atomic energy','dae','npcil'],
+    nsa: ['nasa','esa','jaxa','space exploration','spacex','blue origin','rocket lab','virgin galactic'],
+    tata_group: ['tata group','tata','tata steel','tata power','tata chemicals','tata consumer','titan','tata communications','tata projects','tata elxsi','tata advanced systems','tata sons'],
+    reliance: ['reliance','jio','jio platforms','reliance retail','reliance industries','reliance digital','ril'],
+    mahindra: ['mahindra','m&m','mahindra and mahindra','tech mahindra','mahindra rise','mahindra electric'],
+    aditya_birla: ['aditya birla','birla','hindalco','ultratech','grasim','vodafone idea','vodafone','idea','abg'],
+    larsen: ['l&t','larsen and toubro','larsen & toubro','lnt','l&t infotech','l&t technology'],
+    bajaj: ['bajaj','bajaj auto','bajaj finserv','bajaj finance','bajaj electricals'],
+    hdfc: ['hdfc','hdfc bank','hdfc life','hdfc amc'],
+    icici: ['icici','icici bank','icici prudential','icici lombard','icici securities'],
+    sbi: ['sbi','state bank of india','state bank'],
+    axis: ['axis bank','axis'],
+    kotak: ['kotak','kotak mahindra','kotak bank'],
+    yes_bank: ['yes bank'],
+    indusind: ['indusind','indusind bank'],
+    lic: ['lic','life insurance corporation'],
+    cipla: ['cipla'],
+    sun_pharma: ['sun pharma','sun pharmaceutical'],
+    drreddy: ["dr reddy","dr. reddy's",'drreddy'],
+    biocon: ['biocon'],
+    lupin: ['lupin'],
+    divis: ["divi's",'divis','divis lab'],
+    stanford: ['stanford','stanford university'],
+    mit: ['mit','massachusetts institute of technology'],
+    cmu: ['cmu','carnegie mellon'],
+    caltech: ['caltech','california institute of technology'],
+    harvard: ['harvard','harvard university'],
+    yale: ['yale'],
+    princeton: ['princeton'],
+    columbia: ['columbia university'],
+    cornell: ['cornell'],
+    upenn: ['upenn','university of pennsylvania','wharton'],
+    umich: ['university of michigan','umich','u of m'],
+    ucb: ['uc berkeley','university of california berkeley','ucb','cal berkeley'],
+    ucla: ['ucla','university of california los angeles'],
+    oxford: ['oxford','university of oxford'],
+    cambridge: ['cambridge','university of cambridge'],
+    imperial: ['imperial college','imperial college london'],
+    ethu: ['eth zurich','eth zürich'],
+    epfl: ['epfl','ecole polytechnique'],
+    toronto: ['university of toronto','u of toronto','uoft'],
+    waterloo: ['university of waterloo','uwaterloo'],
+    mcgill: ['mcgill'],
+    ubc: ['ubc','university of british columbia'],
+    unsw: ['unsw','university of new south wales'],
+    nus: ['nus','national university of singapore'],
+    ntu: ['ntu','nanyang technological university'],
+    tu_delft: ['tu delft','delft','tudelft'],
+    tum: ['tum','technical university munich'],
+
+
+    // ── COUNTRIES ──────────────────────────────────────────
+    india: ['india','indian','bharat','hindustan'],
+    usa: ['usa','united states','america','us','silicon valley','bay area','seattle','new york','ny','nyc','boston','chicago','austin','san francisco','sf','la','los angeles','san diego','denver','atlanta','dallas','houston','dc','washington dc','miami','phoenix','portland'],
+    uk: ['uk','united kingdom','england','britain','london','manchester','birmingham','edinburgh','glasgow','cambridge uk','oxford uk','bristol','leeds','sheffield','nottingham','cardiff'],
+    canada: ['canada','toronto','vancouver','montreal','calgary','ottawa','edmonton','winnipeg','quebec','waterloo canada'],
+    germany: ['germany','berlin','munich','frankfurt','hamburg','cologne','stuttgart','dusseldorf','heidelberg','karlsruhe'],
+    france: ['france','paris','lyon','marseille','toulouse','bordeaux','grenoble'],
+    netherlands: ['netherlands','amsterdam','eindhoven','rotterdam','delft netherlands','utrecht'],
+    switzerland: ['switzerland','zurich','geneva','lausanne','bern','basel'],
+    sweden: ['sweden','stockholm','gothenburg','malmo'],
+    norway: ['norway','oslo'],
+    denmark: ['denmark','copenhagen'],
+    finland: ['finland','helsinki'],
+    austria: ['austria','vienna'],
+    belgium: ['belgium','brussels'],
+    spain: ['spain','madrid','barcelona'],
+    italy: ['italy','milan','rome','florence'],
+    portugal: ['portugal','lisbon','porto'],
+    poland: ['poland','warsaw','krakow'],
+    czech: ['czech','prague','czechia'],
+    singapore: ['singapore','sg'],
+    dubai: ['dubai','uae','united arab emirates','emirates','abu dhabi','sharjah','ajman'],
+    saudi: ['saudi','ksa','saudi arabia','riyadh','jeddah'],
+    qatar: ['qatar','doha'],
+    kuwait: ['kuwait'],
+    bahrain: ['bahrain'],
+    oman: ['oman','muscat'],
+    australia: ['australia','sydney','melbourne','brisbane','perth','adelaide','canberra'],
+    newzealand: ['new zealand','auckland','wellington','christchurch'],
+    japan: ['japan','tokyo','osaka','kyoto','nagoya'],
+    china: ['china','beijing','shanghai','shenzhen','guangzhou','hangzhou'],
+    taiwan: ['taiwan','taipei'],
+    south_korea: ['south korea','korea','seoul','busan'],
+    hongkong: ['hong kong','hk'],
+    thailand: ['thailand','bangkok'],
+    malaysia: ['malaysia','kuala lumpur','kl'],
+    indonesia: ['indonesia','jakarta'],
+    vietnam: ['vietnam','hanoi','ho chi minh'],
+    philippines: ['philippines','manila'],
+    israel: ['israel','tel aviv'],
+    turkey: ['turkey','istanbul','ankara'],
+    south_africa: ['south africa','johannesburg','cape town'],
+    nigeria: ['nigeria','lagos'],
+    kenya: ['kenya','nairobi'],
+    brazil: ['brazil','sao paulo','rio'],
+    mexico: ['mexico','mexico city'],
+    argentina: ['argentina','buenos aires'],
+    abroad: ['abroad','foreign','overseas','international','outside india','not in india','outside of india','settled abroad','moved abroad','living abroad','relocated abroad','migrated','expat','expatriate','diaspora'],
+
+
+    // ── INDIAN CITIES & STATES ─────────────────────────────
+    bangalore: ['bangalore','bengaluru','blr','bangalore city','silicon valley of india'],
+    mumbai: ['mumbai','bombay','bandra','powai','thane','andheri','navi mumbai','kalyan','pune mumbai'],
+    delhi: ['delhi','new delhi','ncr','gurugram','gurgaon','noida','faridabad','ghaziabad','greater noida','dwarka','rohini'],
+    hyderabad: ['hyderabad','cyberabad','secunderabad','hitec city','hyd','hitech'],
+    pune: ['pune','pimpri','chinchwad','hinjewadi'],
+    chennai: ['chennai','madras','siruseri','sholinganallur'],
+    kolkata: ['kolkata','calcutta'],
+    ahmedabad: ['ahmedabad','amdavad','gandhinagar','sg highway'],
+    surat: ['surat'],
+    vadodara: ['vadodara','baroda'],
+    jaipur: ['jaipur','pink city'],
+    chandigarh: ['chandigarh','tricity','mohali','panchkula'],
+    kochi: ['kochi','cochin','ernakulam','kerala it'],
+    trivandrum: ['trivandrum','thiruvananthapuram'],
+    coimbatore: ['coimbatore'],
+    nagpur: ['nagpur'],
+    indore: ['indore'],
+    bhopal: ['bhopal'],
+    lucknow: ['lucknow'],
+    kanpur: ['kanpur'],
+    varanasi: ['varanasi','banaras','benaras','kashi'],
+    patna: ['patna'],
+    bhubaneswar: ['bhubaneswar','bbsr'],
+    guwahati: ['guwahati'],
+    dehradun: ['dehradun'],
+    mysore: ['mysore','mysuru'],
+    mangalore: ['mangalore','mangaluru'],
+    vizag: ['vizag','visakhapatnam'],
+    vijayawada: ['vijayawada'],
+    gujarat: ['gujarat','gujarati','guj'],
+    maharashtra: ['maharashtra'],
+    rajasthan: ['rajasthan','rajasthani'],
+    karnataka: ['karnataka','kannadiga'],
+    kerala: ['kerala','malayali'],
+    tamilnadu: ['tamil nadu','tamilnadu','tamil','tamilian'],
+    telangana: ['telangana'],
+    andhra: ['andhra','andhra pradesh','ap'],
+    up: ['uttar pradesh','up','hindi belt'],
+    mp: ['madhya pradesh','mp'],
+    bihar: ['bihar','bihari'],
+    jharkhand: ['jharkhand'],
+    odisha: ['odisha','orissa'],
+    wb: ['west bengal','wb','bengal','bengali'],
+    assam: ['assam','northeast'],
+    punjab: ['punjab','punjabi'],
+    haryana: ['haryana','haryanvi'],
+    himachal: ['himachal','himachal pradesh'],
+    uttarakhand: ['uttarakhand','uttaranchal'],
+    goa: ['goa','goanese'],
+    northeast: ['northeast','assam','meghalaya','manipur','nagaland','tripura','mizoram','arunachal','sikkim'],
+  };
+
+
+  // ════════════════════════════════════════════════════════════
+  //  INTENT DETECTION — What is the user really asking?
+  // ════════════════════════════════════════════════════════════
+
+
+  // Numbers in query
+  var allNums = (q.match(/\d+/g)||[]).map(Number);
+
+
+  // Batch / graduation year detection
+  var batchYears = [];
+  var batchPatterns = [
+    /\b(?:batch|yog|yog:|class of|graduated?(?:\s+in)?|pass(?:ed)?(?:\s+out)?(?:\s+in)?|passout)\s*((?:19|20)\d{2})\b/gi,
+    /\b((?:19|20)\d{2})\s*(?:batch|passout|yog|grad(?:uate)?)\b/gi,
+    /\bbatch[:\s]+((?:19|20)\d{2})\b/gi
+  ];
+  batchPatterns.forEach(function(pat){
+    var m; pat.lastIndex=0;
+    while((m=pat.exec(q))!==null) batchYears.push(Number(m[1]||m[2]));
+  });
+  // Also bare 4-digit years 2000-current
+  (q.match(/\b(20\d{2})\b/g)||[]).forEach(function(y){
+    var n=Number(y); if(n>=2000&&n<=CY&&batchYears.indexOf(n)<0) batchYears.push(n);
+  });
+  batchYears = Array.from(new Set(batchYears));
+
+
+  // Batch range: "2015 to 2020" or "2015-2020" or "between 2015 and 2020"
+  var batchFrom=null, batchTo=null;
+  var rangeM = q.match(/\b(20\d{2})\s*(?:to|-|and|till|until|through)\s*(20\d{2})\b/) ||
+               q.match(/between\s+(20\d{2})\s+and\s+(20\d{2})/);
+  if(rangeM){ batchFrom=Number(rangeM[1]); batchTo=Number(rangeM[2]); batchYears=[]; }
+
+
+  // Before/after batch year
+  var batchAfterM  = q.match(/(?:after|post|since|from|>=)\s*(20\d{2})/);
+  var batchBeforeM = q.match(/(?:before|prior to|upto|till|<=)\s*(20\d{2})/);
+  var batchAfter  = batchAfterM  ? Number(batchAfterM[1])  : null;
+  var batchBefore = batchBeforeM ? Number(batchBeforeM[1]) : null;
+
+
+  // Experience / years
+  var minYrs=null, maxYrs=null;
+  var moreM  = q.match(/(?:more than|over|at least|minimum|min|greater than|>\s*|atleast)\s*(\d+)\s*(?:years?|yrs?)/i);
+  var lessM  = q.match(/(?:less than|under|below|fewer than|maximum|max|<\s*|atmost|at most)\s*(\d+)\s*(?:years?|yrs?)/i);
+  var exactM = q.match(/(?:exactly|around|about|~|approx)?\s*(\d+)\s*(?:years?|yrs?)\s*(?:of\s+)?(?:experience|exp|tenure|service)/i);
+  var sinceM = q.match(/(?:since|from|joined(?:\s+in)?|joining(?:\s+date)?)\s*(20\d{2})/i);
+  if(moreM)  minYrs = parseInt(moreM[1]);
+  if(lessM)  maxYrs = parseInt(lessM[1]);
+  if(exactM){ minYrs=parseInt(exactM[1])-1; maxYrs=parseInt(exactM[1])+1; }
+  if(sinceM && !minYrs){ minYrs = CY - parseInt(sinceM[1]); }
+
+
+  // Donation related
+  var donMinAmt=null;
+  var donAmtM = q.match(/donated?\s*(?:more than|over|at least|>=|>)?\s*(?:rs\.?|₹|inr)?\s*(\d[\d,]*(?:\.\d+)?)\s*(k|l|lac|lakh|cr|crore|thousand|million)?/i);
+  if(donAmtM){
+    var raw = donAmtM[1].replace(/,/g,'');
+    var mult = donAmtM[2]||'';
+    donMinAmt = parseFloat(raw);
+    if(/^k|thousand$/i.test(mult)) donMinAmt*=1000;
+    else if(/^l|lac|lakh$/i.test(mult)) donMinAmt*=100000;
+    else if(/^cr|crore$/i.test(mult)) donMinAmt*=10000000;
+    else if(/^million$/i.test(mult)) donMinAmt*=1000000;
+  }
+
+
+  // Event attendance
+  var evMinCount=null, evMaxCount=null;
+  var evMoreM = q.match(/attended\s*(?:more than|over|at least|>=)?\s*(\d+)\s*events?/i) ||
+                q.match(/(?:more than|over|at least)\s*(\d+)\s*events?/i);
+  var evLessM = q.match(/attended\s*(?:less than|under|fewer than|<=)?\s*(\d+)\s*events?/i);
+  if(evMoreM) evMinCount=parseInt(evMoreM[1]);
+  if(evLessM) evMaxCount=parseInt(evLessM[1]);
+
+
+  // Top-N / first-N / last-N
+  var topN=null, topAsc=false;
+  var topM = q.match(/\btop\s*(\d+)\b/i) || q.match(/\bfirst\s*(\d+)\b/i) || q.match(/\bbest\s*(\d+)\b/i);
+  var botM = q.match(/\bbottom\s*(\d+)\b/i) || q.match(/\blast\s*(\d+)\b/i) || q.match(/\bworst\s*(\d+)\b/i);
+  if(topM){ topN=parseInt(topM[1]); topAsc=false; }
+  if(botM){ topN=parseInt(botM[1]); topAsc=true; }
+
+
+  // Sort intents
+  var sortByDon   = /(?:top|most|highest|biggest|largest|maximum|max)\s*donor|donated?\s*(?:most|maximum|highest)|most\s*(?:donated?|generous)/i.test(q);
+  var sortByEng   = /most\s*(?:engaged|active|involved|participat)|highest\s*engagement|engagement\s*score/i.test(q);
+  var sortByBatch = /(?:oldest|earliest|most senior|senior most|first)\s*batch|senior\s*most\s*alumni/i.test(q);
+  var sortByBatchDesc = /(?:latest|newest|most recent|recent|youngest)\s*batch|recent\s*alumni/i.test(q);
+  var sortByEvents= /most\s*events?|highest\s*attendance|attended\s*most/i.test(q);
+
+
+  // Special condition flags
+  var wantSwitched   = /switch|switched|changed\s*(?:job|career|field)|job\s*change|career\s*change|moved\s*from|shifted\s*(?:from|to)|transition|pivoted/i.test(q);
+  var wantVerifyDue  = /overdue|not\s*verified|verify\s*due|unverified|outdated|stale|need\s*(?:to be\s*)?verify|pending\s*verify|verify\s*pending/i.test(q);
+  var wantVerified   = /\bverified\b|\bup\s*to\s*date\b|\bupdated\b|\bfresh\s*data\b/i.test(q) && !wantVerifyDue;
+  var wantDonors     = /\bdonor\b|\bdonated\b|\bcontribut(?:ed|ing|or)\b|\bgiving\b|\bgivs?\b/i.test(q);
+  var wantNonDonors  = /(?:not|never|no[nt])\s*donated?|non[- ]?donor|never\s*(?:given|contributed)/i.test(q);
+  var wantAttended   = /attended\s*(?:event|our|any|some)|present\s*(?:in|at)\s*event|came\s*to\s*event|participated\s*in\s*event/i.test(q);
+  var wantNoEvents   = /(?:never|not|no[nt])\s*attended|0\s*events?|zero\s*events?|never\s*(?:came|participated)/i.test(q);
+  var wantSenior     = /\b(?:senior|lead|head|director|vp|chief|cto|ceo|coo|cfo|president|founder|partner|gm|md|principal)\b/i.test(q);
+  var wantJunior     = /\b(?:junior|intern|fresher|entry[- ]level|trainee|graduate\s*trainee)\b/i.test(q);
+  var wantAbroad     = /\b(?:abroad|foreign|overseas|international|outside\s*india|not\s*in\s*india|settled\s*abroad|expat)\b/i.test(q);
+  var wantInIndia    = /\b(?:in\s*india|within\s*india|india\s*based|based\s*in\s*india)\b/i.test(q);
+  var wantFemale     = /\b(?:female|women|woman|girl|lady|ladies|she|her)\b/i.test(q);
+  var wantMale       = /\b(?:male|men|man|boy|he|his|guys?)\b/i.test(q);
+  var wantNoJob      = /\b(?:unemployed|no\s*job|jobless|looking\s*for\s*job|job\s*seeker|between\s*jobs|not\s*working)\b/i.test(q);
+  var wantLinkedin   = /\b(?:linkedin|has\s*linkedin|with\s*linkedin|linkedin\s*profile)\b/i.test(q);
+  var wantEmail      = /\b(?:has\s*email|with\s*email|email\s*available|contact\s*available)\b/i.test(q);
+  var wantMostEngaged= /most\s*engaged|most\s*active|highest\s*engagement/i.test(q);
+  var wantLeastEngaged=/least\s*engaged|least\s*active|lowest\s*engagement|inactive/i.test(q);
+  var wantHighDonors = /top\s*donor|most\s*generous|highest\s*donor|biggest\s*donor/i.test(q);
+
+
+  // Multi-field negation: "not in X", "outside X", "except X"
+  var negLocations = [];
+  var negOrgPhrases = [];
+  var negM1 = q.match(/(?:not\s+in|outside|except(?:ing)?|excluding|other\s+than|apart\s+from)\s+([a-z\s,]+?)(?:\s+and\s|\s+or\s|\s+but\s|,\s*(?:find|show|who)|$)/gi);
+  if(negM1) negLocations = negM1;
+
+
+  // ════════════════════════════════════════════════════════════
+  //  CONCEPT MATCHING — Which synonym groups match the query?
+  // ════════════════════════════════════════════════════════════
+  var matchedConcepts = {};
+  Object.keys(SYN).forEach(function(key){
+    var terms = SYN[key];
+    var score = 0;
+    terms.forEach(function(t){
+      if(q.indexOf(t)>=0){
+        score += (t.length > 5) ? 3 : 1; // longer term match = stronger signal
+      }
+    });
+    if(score>0) matchedConcepts[key] = score;
+  });
+
+
+  // Expand query with all matched synonyms
+  var expandedTerms = [q];
+  Object.keys(matchedConcepts).forEach(function(key){
+    expandedTerms = expandedTerms.concat(SYN[key]);
+  });
+  expandedTerms = Array.from(new Set(expandedTerms));
+
+
+  // ════════════════════════════════════════════════════════════
+  //  HELPER FUNCTIONS
+  // ════════════════════════════════════════════════════════════
+  function has(text, terms){
+    var t = (text||'').toLowerCase();
+    return (Array.isArray(terms)?terms:[terms]).some(function(w){return t.indexOf(w)>=0;});
+  }
+  function yearsAtJob(a){
+    var j = a['Month and Year of Joining']||'';
+    var ym = j.match(/(19|20)\d{2}/);
+    return ym ? CY - parseInt(ym[0]) : null;
+  }
+  function donTotal(roll){
+    return DB.donations.filter(function(d){return d.alumniRoll==roll;})
+      .reduce(function(s,d){return s+Number(d.amount||0);},0);
+  }
+  function evCount(roll){
+    return DB.attendance.filter(function(a){return a.alumniRoll==roll;}).length;
+  }
+  function switchCount(roll){
+    return DB.jobHistory.filter(function(h){return h.alumniRoll==roll;}).length;
+  }
+
+
+  // ════════════════════════════════════════════════════════════
+  //  SCORE EVERY ALUMNI
+  // ════════════════════════════════════════════════════════════
+  var scored = DB.alumni.map(function(a){
+    var score = 0;
+    var HARD_EXCLUDE = false;
+    var reasons = [];
+
+
+    var org     = (a['Organization/Institute/University']||'').toLowerCase();
+    var desig   = (a['Designation']||'').toLowerCase();
+    var sector  = (a['Sector']||'').toLowerCase();
+    var city    = (a['City']||'').toLowerCase();
+    var state   = (a['State/ Province']||'').toLowerCase();
+    var country = (a['Country']||'').toLowerCase();
+    var name    = (a['Name of the alumni']||'').toLowerCase();
+    var course  = (a['Course']||'').toLowerCase();
+    var joining = (a['Month and Year of Joining']||'').toLowerCase();
+    var iitgn_email = (a['IITGn Email']||'').toLowerCase();
+    var yog     = Number(a['YOG']);
+    var roll    = a['Roll No'];
+    var allText = [org,desig,sector,city,state,country,name,course,joining].join(' ');
+
+
+    // ── Exact full query match ──
+    if(allText.indexOf(rawQuery.toLowerCase())>=0){score+=200;reasons.push('exact match');}
+
+
+    // ── Batch / YOG filtering (hard filter when specified) ──
+    if(batchYears.length>0){
+      if(batchYears.indexOf(yog)>=0){score+=150;reasons.push('batch '+yog);}
+      else HARD_EXCLUDE=true;
+    }
+    if(batchRange){
+      if(yog>=batchFrom&&yog<=batchTo){score+=150;reasons.push('batch range');}
+      else HARD_EXCLUDE=true;
+    }
+    if(batchAfter){
+      if(yog>=batchAfter){score+=120;reasons.push('batch after '+batchAfter);}
+      else HARD_EXCLUDE=true;
+    }
+    if(batchBefore){
+      if(yog<=batchBefore){score+=120;reasons.push('batch before '+batchBefore);}
+      else HARD_EXCLUDE=true;
+    }
+
+
+    // ── Years at job ──
+    var yrs = yearsAtJob(a);
+    if(minYrs!==null){
+      if(yrs!==null&&yrs>=minYrs){score+=100;reasons.push(yrs+' yrs');}
+      else HARD_EXCLUDE=true;
+    }
+    if(maxYrs!==null){
+      if(yrs!==null&&yrs<=maxYrs){score+=100;reasons.push(yrs+' yrs');}
+      else HARD_EXCLUDE=true;
+    }
+
+
+    // ── Donations ──
+    var dt = donTotal(roll);
+    if(donMinAmt!==null){
+      if(dt>=donMinAmt){score+=120;reasons.push('donated ₹'+dt);}
+      else HARD_EXCLUDE=true;
+    }
+    if(wantHighDonors){ score+=dt/1000; } // proportional score
+    if(wantDonors&&!wantNonDonors){
+      if(dt>0){score+=80;reasons.push('donor');}
+      else score-=60;
+    }
+    if(wantNonDonors){
+      if(dt===0){score+=90;reasons.push('non-donor');}
+      else HARD_EXCLUDE=true;
+    }
+
+
+    // ── Events ──
+    var ec = evCount(roll);
+    if(evMinCount!==null){
+      if(ec>=evMinCount){score+=90;reasons.push(ec+' events');}
+      else HARD_EXCLUDE=true;
+    }
+    if(evMaxCount!==null){
+      if(ec<=evMaxCount){score+=90;}
+      else HARD_EXCLUDE=true;
+    }
+    if(wantNoEvents){
+      if(ec===0){score+=90;reasons.push('no events');}
+      else HARD_EXCLUDE=true;
+    }
+    if(wantAttended&&evMinCount===null&&!wantNoEvents){
+      if(ec>0){score+=60;reasons.push('attended events');}
+      else score-=30;
+    }
+
+
+    // ── Engagement ──
+    var engS = eng(roll);
+    if(wantMostEngaged){ score+=engS*2; reasons.push('engaged'); }
+    if(wantLeastEngaged){ score+=(100-engS); }
+
+
+    // ── Job switches ──
+    var sw = switchCount(roll);
+    if(wantSwitched){
+      if(sw>0){score+=80;reasons.push(sw+' switches');}
+      else score-=40;
+    }
+
+
+    // ── Location: abroad / India ──
+    var isAbroad = country!==''&&country.indexOf('india')<0;
+    if(wantAbroad){
+      if(isAbroad){score+=100;reasons.push('abroad');}
+      else HARD_EXCLUDE=true;
+    }
+    if(wantInIndia){
+      if(!isAbroad||country===''){score+=80;reasons.push('in India');}
+      else HARD_EXCLUDE=true;
+    }
+
+
+    // ── Seniority ──
+    if(wantSenior){
+      if(has(desig,SYN.senior)){score+=80;reasons.push('senior');}
+      else score-=20;
+    }
+    if(wantJunior){
+      if(has(desig,SYN.junior)){score+=80;reasons.push('junior');}
+      else score-=20;
+    }
+
+
+    // ── LinkedIn / Email availability ──
+    if(wantLinkedin){
+      if(a['Linkedin']){score+=70;reasons.push('has linkedin');}
+      else HARD_EXCLUDE=true;
+    }
+    if(wantEmail){
+      if(a['Personal Email ID']||a['Work Email ID']||a['IITGn Email']){score+=70;}
+      else HARD_EXCLUDE=true;
+    }
+
+
+    // ── Verify status ──
+    if(wantVerifyDue){
+      if(vs(a['_lastVerified'])==='due'){score+=100;reasons.push('verify due');}
+      else HARD_EXCLUDE=true;
+    }
+    if(wantVerified){
+      if(vs(a['_lastVerified'])==='ok'){score+=80;reasons.push('verified');}
+      else HARD_EXCLUDE=true;
+    }
+
+
+    // ── Concept-based matching ──
+    var orgConcepts    = ['google','microsoft','amazon','meta','apple','netflix','uber','airbnb','twitter','linkedin','salesforce','adobe','oracle','ibm','intel','nvidia','qualcomm','amd','tcs','infosys','wipro','hcl','cognizant','tech_mahindra','accenture','capgemini','mphasis','ltimindtree','hexaware','flipkart','zomato','swiggy','ola','paytm','razorpay','phonepe','groww','zerodha','cred','meesho','byju','unacademy','vedantu','freshworks','zoho','chargebee','browserstack','postman','hasura','setu','clevertap','moengage','nykaa','cars24','oyo','lenskart','mamaearth','boat','spinny','urban_company','iit','iim','iisc','nit','bits','iiit','isro','drdo','barc','nsa','tata_group','reliance','mahindra','aditya_birla','larsen','bajaj','hdfc','icici','sbi','axis','kotak','yes_bank','indusind','lic','cipla','sun_pharma','drreddy','biocon','lupin','divis','stanford','mit','cmu','caltech','harvard','yale','princeton','columbia','cornell','upenn','umich','ucb','ucla','oxford','cambridge','imperial','ethu','epfl','toronto','waterloo','mcgill','ubc','unsw','nus','ntu','tu_delft','tum','amazon_india'];
+    var sectorConcepts = ['it','academia','govt','entre','finance','health','research','higher','mfg','consult','legal','design','media','ngo'];
+    var roleConcepts   = ['professor','engineer','scientist','manager','analyst','doctor','senior','junior','mid'];
+    var countConcepts  = ['india','usa','uk','canada','germany','france','netherlands','switzerland','sweden','norway','denmark','finland','austria','belgium','spain','italy','portugal','poland','czech','singapore','dubai','saudi','qatar','kuwait','bahrain','oman','australia','newzealand','japan','china','taiwan','south_korea','hongkong','thailand','malaysia','indonesia','vietnam','philippines','israel','turkey','south_africa','nigeria','kenya','brazil','mexico','argentina','abroad'];
+    var cityConcepts   = ['bangalore','mumbai','delhi','hyderabad','pune','chennai','kolkata','ahmedabad','surat','vadodara','jaipur','chandigarh','kochi','trivandrum','coimbatore','nagpur','indore','bhopal','lucknow','kanpur','varanasi','patna','bhubaneswar','guwahati','dehradun','mysore','mangalore','vizag','vijayawada'];
+    var stateConcepts  = ['gujarat','maharashtra','rajasthan','karnataka','kerala','tamilnadu','telangana','andhra','up','mp','bihar','jharkhand','odisha','wb','assam','punjab','haryana','himachal','uttarakhand','goa','northeast'];
+
+
+    Object.keys(matchedConcepts).forEach(function(concept){
+      if(!SYN[concept]) return;
+      var terms = SYN[concept];
+      var matched = false;
+
+
+      if(orgConcepts.indexOf(concept)>=0){
+        if(has(org,terms)){score+=110;reasons.push(concept);matched=true;}
+        if(has(desig,terms)&&!matched){score+=40;matched=true;}
+      } else if(sectorConcepts.indexOf(concept)>=0){
+        if(has(sector,terms)){score+=90;reasons.push(concept);matched=true;}
+        if(has(desig,terms)){score+=80;matched=true;}
+        if(has(org,terms)){score+=65;matched=true;}
+      } else if(roleConcepts.indexOf(concept)>=0){
+        if(has(desig,terms)){score+=95;reasons.push(concept);matched=true;}
+        if(has(org,terms)){score+=50;matched=true;}
+      } else if(countConcepts.indexOf(concept)>=0){
+        if(concept==='abroad'){
+          if(isAbroad){score+=85;reasons.push('abroad');matched=true;}
+        } else {
+          if(has(country,terms)){score+=90;reasons.push(concept);matched=true;}
+        }
+      } else if(cityConcepts.indexOf(concept)>=0||stateConcepts.indexOf(concept)>=0){
+        if(has(city,terms)||has(state,terms)||has(country,terms)){score+=85;reasons.push(concept);matched=true;}
+      }
+    });
+
+
+    // ── Token fallback for any remaining unmatched words ──
+    var stopWords = new Set(['the','and','or','not','in','at','of','for','to','a','an','is','are','who','which','that','find','show','list','get','give','me','all','any','some','have','has','been','was','were','with','from','by','on','about','alumni','people','person','iitgn','our','my','your','their','those','these','what','how','many','much','where','when','more','less','than','over','under','year','years','batch','since','after','before','between']);
+    q.replace(/[^a-z0-9\s]/g,'').split(/\s+/).forEach(function(tok){
+      if(tok.length<3||stopWords.has(tok)) return;
+      if(expandedTerms.indexOf(tok)>=0) return; // already handled
+      if(org.indexOf(tok)>=0){score+=35;reasons.push('org:'+tok);}
+      if(desig.indexOf(tok)>=0){score+=32;}
+      if(city.indexOf(tok)>=0){score+=28;}
+      if(state.indexOf(tok)>=0){score+=25;}
+      if(country.indexOf(tok)>=0){score+=25;}
+      if(sector.indexOf(tok)>=0){score+=22;}
+      if(name.indexOf(tok)>=0){score+=18;}
+      if(course.indexOf(tok)>=0){score+=12;}
+      if(joining.indexOf(tok)>=0){score+=10;}
+      if(iitgn_email.indexOf(tok)>=0){score+=15;}
+    });
+
+
+    if(HARD_EXCLUDE) score=-9999;
+
+
+    return{a:a, score:score, reasons:Array.from(new Set(reasons)), dt:dt, ec:ec, sw:sw, yrs:yrs, engS:engS};
+  });
+
+
+  // ════════════════════════════════════════════════════════════
+  //  FILTER, SORT & LIMIT
+  // ════════════════════════════════════════════════════════════
+  var results = scored.filter(function(x){return x.score>=20;});
+
+
+  // Sort
+  if(sortByDon||wantHighDonors)       results.sort(function(a,b){return b.dt-a.dt;});
+  else if(sortByEng||wantMostEngaged) results.sort(function(a,b){return b.engS-a.engS;});
+  else if(wantLeastEngaged)           results.sort(function(a,b){return a.engS-b.engS;});
+  else if(sortByEvents)               results.sort(function(a,b){return b.ec-a.ec;});
+  else if(sortByBatch)                results.sort(function(a,b){return a.a['YOG']-b.a['YOG'];});
+  else if(sortByBatchDesc)            results.sort(function(a,b){return b.a['YOG']-a.a['YOG'];});
+  else                                results.sort(function(a,b){return b.score-a.score;});
+
+
+  if(topAsc) results.reverse();
+  if(topN)   results = results.slice(0,topN);
+
+
+  var rolls = results.map(function(x){return x.a['Roll No'];});
+
+
+  // ════════════════════════════════════════════════════════════
+  //  GENERATE SMART NATURAL LANGUAGE SUMMARY
+  // ════════════════════════════════════════════════════════════
+  var summary='';
+  if(rolls.length===0){
+    var sugg=[];
+    if(batchYears.length>0) sugg.push('Try removing the batch year filter');
+    if(minYrs!==null) sugg.push('Try reducing the minimum years of experience');
+    if(wantAbroad) sugg.push('Try without the "abroad" filter');
+    if(donMinAmt!==null) sugg.push('Try a lower donation amount');
+    sugg.push('Use just a company name, city, role, or sector');
+    sugg.push('Try broader terms like "IT alumni" or "Bangalore"');
+    summary = '<span style="color:#f87171">No alumni found for <strong>"'+rawQuery+'"</strong>.</span>'
+      + '<br><br>💡 <strong>Suggestions:</strong><br>'
+      + sugg.map(function(s){return '• '+s;}).join('<br>');
+  } else {
+    var parts=[];
+    // What was filtered
+    if(batchYears.length===1)      parts.push('from <strong>batch '+batchYears[0]+'</strong>');
+    else if(batchYears.length>1)   parts.push('from <strong>batches '+batchYears.join(' & ')+'</strong>');
+    if(batchRange)                 parts.push('from <strong>batch '+batchFrom+'–'+batchTo+'</strong>');
+    if(batchAfter)                 parts.push('who graduated <strong>after '+batchAfter+'</strong>');
+    if(batchBefore)                parts.push('who graduated <strong>before '+batchBefore+'</strong>');
+    if(minYrs!==null&&maxYrs===null) parts.push('with <strong>'+minYrs+'+ years</strong> at current job');
+    if(maxYrs!==null&&minYrs===null) parts.push('with <strong>under '+maxYrs+' years</strong> at current job');
+    if(minYrs!==null&&maxYrs!==null&&minYrs!==maxYrs-2) parts.push('with <strong>'+minYrs+'–'+maxYrs+' years</strong> experience');
+    if(wantAbroad)    parts.push('based <strong>outside India</strong>');
+    if(wantInIndia)   parts.push('based <strong>in India</strong>');
+    if(wantSenior)    parts.push('in <strong>senior/leadership roles</strong>');
+    if(wantJunior)    parts.push('in <strong>entry-level roles</strong>');
+    if(wantDonors&&!wantNonDonors)  parts.push('who are <strong>donors</strong>');
+    if(wantNonDonors) parts.push('who have <strong>not donated</strong>');
+    if(wantAttended)  parts.push('who have <strong>attended events</strong>');
+    if(wantNoEvents)  parts.push('who have <strong>never attended events</strong>');
+    if(wantSwitched)  parts.push('who have <strong>changed jobs/careers</strong>');
+    if(wantVerifyDue) parts.push('with <strong>overdue verification</strong>');
+    if(topN)          parts.push('(top '+topN+')');
+    if(sortByDon||wantHighDonors) parts.push('sorted by <strong>donation amount ↓</strong>');
+    if(sortByEng||wantMostEngaged) parts.push('sorted by <strong>engagement ↓</strong>');
+    if(evMinCount!==null) parts.push('who attended <strong>'+evMinCount+'+ events</strong>');
+    if(donMinAmt!==null)  parts.push('who donated <strong>₹'+donMinAmt.toLocaleString('en-IN')+'+ </strong>');
+
+
+    // Concept labels for natural summary
+    var cLabels = {
+      google:'at Google', microsoft:'at Microsoft', amazon:'at Amazon', meta:'at Meta',
+      apple:'at Apple', netflix:'at Netflix', uber:'at Uber', tcs:'at TCS',
+      infosys:'at Infosys', wipro:'at Wipro', hcl:'at HCL', cognizant:'at Cognizant',
+      accenture:'at Accenture', flipkart:'at Flipkart', zomato:'at Zomato', swiggy:'at Swiggy',
+      ola:'at Ola', paytm:'at Paytm', razorpay:'at Razorpay', byju:"at BYJU'S",
+      freshworks:'at Freshworks', zoho:'at Zoho', iit:'at IITs', iim:'at IIMs',
+      isro:'at ISRO', drdo:'at DRDO', barc:'at BARC', tata_group:'at Tata Group',
+      reliance:'at Reliance', hdfc:'at HDFC', icici:'at ICICI', sbi:'at SBI',
+      stanford:'at Stanford', mit:'at MIT', oxford:'at Oxford', cambridge:'at Cambridge',
+      it:'in IT/Software', academia:'in Academia', govt:'in Government/PSU',
+      entre:'Entrepreneurs', finance:'in Finance/Banking', health:'in Healthcare',
+      research:'in Research', higher:'in Higher Studies', mfg:'in Manufacturing',
+      consult:'in Consulting', legal:'in Legal', design:'in Design', media:'in Media',
+      professor:'Professors', engineer:'Engineers', scientist:'Scientists',
+      manager:'Managers', analyst:'Analysts', doctor:'Doctors',
+      india:'in India', usa:'in USA', uk:'in UK', canada:'in Canada',
+      germany:'in Germany', singapore:'in Singapore', dubai:'in UAE/Dubai',
+      australia:'in Australia', japan:'in Japan', china:'in China',
+      abroad:'outside India',
+      bangalore:'in Bangalore', mumbai:'in Mumbai', delhi:'in Delhi/NCR',
+      hyderabad:'in Hyderabad', pune:'in Pune', chennai:'in Chennai',
+      ahmedabad:'in Ahmedabad', kolkata:'in Kolkata',
+      gujarat:'from Gujarat', maharashtra:'from Maharashtra', rajasthan:'from Rajasthan',
+      karnataka:'from Karnataka', kerala:'from Kerala', tamilnadu:'from Tamil Nadu',
+    };
+    Object.keys(matchedConcepts).forEach(function(c){
+      if(cLabels[c]) parts.push('<strong>'+cLabels[c]+'</strong>');
+    });
+
+
+    summary = 'Found <strong>'+rolls.length+' alumni</strong>';
+    if(parts.length>0) summary += ' ' + Array.from(new Set(parts)).slice(0,6).join(', ');
+    summary += '.';
+
+
+    // Extra stats line
+    var extras=[];
+    var totalDon = results.reduce(function(s,x){return s+x.dt;},0);
+    var uniqCountries = Array.from(new Set(results.map(function(x){return x.a['Country'];}).filter(Boolean)));
+    var uniqOrgs = Array.from(new Set(results.map(function(x){return x.a['Organization/Institute/University'];}).filter(Boolean)));
+    var uniqSectors = Array.from(new Set(results.map(function(x){return x.a['Sector'];}).filter(Boolean)));
+    if(totalDon>0) extras.push('Combined donations: <strong>₹'+totalDon.toLocaleString('en-IN')+'</strong>');
+    if(uniqCountries.length===1) extras.push('All in <strong>'+uniqCountries[0]+'</strong>');
+    else if(uniqCountries.length>1&&uniqCountries.length<=4) extras.push(uniqCountries.length+' countries: '+uniqCountries.join(', '));
+    if(uniqOrgs.length===1) extras.push('All at <strong>'+uniqOrgs[0]+'</strong>');
+    if(uniqSectors.length===1&&!parts.some(function(p){return p.indexOf('in ')>=0;})) extras.push('Sector: <strong>'+uniqSectors[0]+'</strong>');
+    if(extras.length>0) summary += '<br><span style="color:#a0a8c0;font-size:12px">' + extras.join(' · ') + '</span>';
+  }
+
+
+  return{rolls:rolls, summary:summary};
+}
+
+
+// ══ EVENTS ═══════════════════════════════════════════════════
+function renderEvents(){
+  var now=new Date();
+  var sorted=DB.events.slice().sort(function(a,b){return new Date(b.date)-new Date(a.date);});
+  return '<div class="tabs">'
+    +'<div class="tab on" onclick="evTab(this,\'up\')">Upcoming ('+sorted.filter(function(e){return new Date(e.date)>=now;}).length+')</div>'
+    +'<div class="tab" onclick="evTab(this,\'past\')">Past ('+sorted.filter(function(e){return new Date(e.date)<now;}).length+')</div>'
+    +'<div class="tab" onclick="evTab(this,\'all\')">All ('+sorted.length+')</div>'
+    +'</div><div id="evlist">'+evCards(sorted.filter(function(e){return new Date(e.date)>=now;}))+'</div>';
+}
+function evCards(list){
+  if(!list.length)return'<div class="empty">No activities</div>';
+  var now=new Date();
+  // type config
+  var typeConf={
+    'Event':        {icon:'🎉',color:'#6366f1'},
+    'Campus Visit': {icon:'🏫',color:'#10b981'},
+    'Hostel Stay':  {icon:'🛏',color:'#0d9488'},
+    'Guest Lecture':{icon:'🎤',color:'#f59e0b'},
+    'Alumni Meet':  {icon:'🤝',color:'#ec4899'},
+    'Workshop':     {icon:'🛠',color:'#8b5cf6'},
+    'Other':        {icon:'📌',color:'#6b7280'}
+  };
+  return list.map(function(e){
+    var d=new Date(e.date),att=DB.attendance.filter(function(a){return a.eventId==e._id;}).length,past=d<now;
+    var tc=typeConf[e.type]||typeConf['Event'];
+    return '<div class="evc">'
+      +'<div class="evd"><div class="evday">'+d.getDate()+'</div><div class="evmon">'+d.toLocaleString('default',{month:'short'})+' '+d.getFullYear()+'</div></div>'
+      +'<div style="flex:1">'
+      +'<div style="display:flex;align-items:center;gap:7px;margin-bottom:2px">'
+      +'<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:'+tc.color+'18;color:'+tc.color+'">'+tc.icon+' '+(e.type||'Event')+'</span>'
+      +'</div>'
+      +'<div style="font-weight:500;font-size:14px">'+e.title+'</div>'
+      +'<div style="font-size:12px;color:var(--t2)">📍 '+(e.location||'IITGn Campus')+(e.description?' · '+e.description:'')+'</div>'
+      +'</div>'
+      +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">'
+      +'<span class="badge '+(past?'bl':'gr')+'">'+(past?'Past':'Upcoming')+'</span>'
+      +'<span style="font-size:11px;color:var(--t3)">'+att+' attended</span>'
+      +'<div style="display:flex;gap:4px"><button class="btn sm" onclick="openAtt(\''+e._id+'\')">👥 Attendance</button>'
+      +'<button class="btn sm dan" onclick="delEvent(\''+e._id+'\')">🗑</button></div></div></div>';
+  }).join('');
+}
+function evTab(el,type){
+  qsa('.tab').forEach(function(t){t.classList.remove('on');});el.classList.add('on');
+  var now=new Date(),list=DB.events.slice().sort(function(a,b){return new Date(b.date)-new Date(a.date);});
+  if(type==='up')list=list.filter(function(e){return new Date(e.date)>=now;});
+  if(type==='past')list=list.filter(function(e){return new Date(e.date)<now;});
+  gi('evlist').innerHTML=evCards(list);
+}
+
+
+// ══ DONATIONS ════════════════════════════════════════════════
+function renderDons(){
+  var sorted=DB.donations.slice().sort(function(a,b){return new Date(b.date)-new Date(a.date);});
+  var tot=sorted.reduce(function(s,d){return s+Number(d.amount||0);},0);
+  return '<div class="sg" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px">'
+    +sc('Total Raised',fmtMoney(tot),'')+sc('Donations Count',sorted.length,'')+sc('Unique Donors',new Set(sorted.map(function(d){return d.alumniRoll;})).size,'')
+    +'</div><div class="tw"><div class="twh"><h3>All Donations</h3></div>'
+    +'<table><thead><tr><th>Alumni</th><th>Roll No</th><th>Amount</th><th>Purpose</th><th>Date</th><th></th></tr></thead><tbody>'
+    +(sorted.length?sorted.map(function(d){
+      var a=DB.alumni.filter(function(x){return x['Roll No']==d.alumniRoll;})[0];
+      return '<tr><td>'+(a?'<div class="nr">'+av(a,24)+'<span style="font-weight:500">'+a['Name of the alumni']+'</span></div>':'—')+'</td>'
+        +'<td style="color:var(--t3)">'+(d.alumniRoll||'—')+'</td>'
+        +'<td style="font-weight:600;color:var(--gr)">'+fmtMoney(d.amount)+'</td>'
+        +'<td>'+(d.purpose||'—')+'</td><td>'+fmtDate(d.date)+'</td>'
+        +'<td><button class="btn sm dan" onclick="delDon(\''+d._id+'\')">🗑</button></td></tr>';
+    }).join(''):'<tr><td colspan="6" class="empty">No donations yet</td></tr>')
+    +'</tbody></table></div>';
+}
+
+
+// ══ REMINDERS ════════════════════════════════════════════════
+function renderRem(){
+  var due=DB.alumni.filter(function(a){return vs(a['_lastVerified'])==='due';});
+  var soon=DB.alumni.filter(function(a){return vs(a['_lastVerified'])==='soon';});
+  return '<div class="sec">⚠ Verification Overdue ('+due.length+')</div>'
+    +due.map(function(a){
+      return '<div class="rmc due"><div style="display:flex;align-items:center;gap:10px;flex:1">'+av(a,36)
+        +'<div><div style="font-weight:500">'+a['Name of the alumni']+' <span style="font-size:11px;color:var(--t3)">'+a['Roll No']+' · '+a['YOG']+'</span></div>'
+        +'<div style="font-size:12px;color:var(--t2)">'+(a['Designation']||'—')+' at '+(a['Organization/Institute/University']||'—')+'</div>'
+        +'<div style="font-size:11px;color:var(--t3)">Last verified: '+(a['_lastVerified']?fmtDate(a['_lastVerified']):'Never')+'</div></div></div>'
+        +'<div style="display:flex;gap:5px;flex-wrap:wrap">'
+        +'<button class="btn sm" onclick="openProf(\''+a['Roll No']+'\')">View</button>'
+        +'<button class="btn sm" onclick="doVerify(\''+a['Roll No']+'\')">✓ Verified</button>'
+        +'<button class="btn sm" onclick="openJC(\''+a['Roll No']+'\')">🔄 Change</button>'
+        +'</div></div>';
+    }).join('')||'<div style="color:var(--t3);font-size:13px;margin-bottom:16px">None overdue 🎉</div>'
+    +'<div class="sec" style="margin-top:20px">⏳ Verify Soon ('+soon.length+')</div>'
+    +soon.map(function(a){
+      return '<div class="rmc soon"><div style="display:flex;align-items:center;gap:10px;flex:1">'+av(a,36)
+        +'<div><div style="font-weight:500">'+a['Name of the alumni']+'</div>'
+        +'<div style="font-size:12px;color:var(--t2)">'+(a['Designation']||'—')+' at '+(a['Organization/Institute/University']||'—')+'</div>'
+        +'<div style="font-size:11px;color:var(--t3)">Last verified: '+fmtDate(a['_lastVerified'])+'</div></div></div>'
+        +'<button class="btn sm" onclick="doVerify(\''+a['Roll No']+'\')">✓ Mark Verified</button></div>';
+    }).join('')||'<div style="color:var(--t3);font-size:13px">None coming up soon</div>';
+}
+
+
+// ══ PROFILE ══════════════════════════════════════════════════
+function openProf(roll){
+  PROF_ROLL=roll;
+  var a=DB.alumni.filter(function(x){return x['Roll No']==roll;})[0];if(!a)return;
+  gi('prof-t').textContent=a['Name of the alumni'];
+  gi('prof-edit').onclick=function(){closeM('m-prof');openEdit(roll);};
+  gi('prof-jc').onclick=function(){closeM('m-prof');openJC(roll);};
+
+
+  var score=eng(roll);
+  var dons=DB.donations.filter(function(d){return d.alumniRoll==roll;});
+  var donTot=dons.reduce(function(s,d){return s+Number(d.amount||0);},0);
+  var evs=DB.attendance.filter(function(x){return x.alumniRoll==roll;})
+    .map(function(x){return DB.events.filter(function(e){return e._id==x.eventId;})[0];}).filter(Boolean);
+  var hist=DB.jobHistory.filter(function(h){return h.alumniRoll==roll;})
+    .sort(function(a,b){return new Date(b.changeDate)-new Date(a.changeDate);});
+
+
+  var c=a['_color']||'#6366f1';
+  var ini=(a['Name of the alumni']||'?').split(' ').map(function(w){return w[0]||'';}).slice(0,2).join('').toUpperCase();
+  var vst=vs(a['_lastVerified']);
+  var vstC={due:'#dc2626',soon:'#d97706',ok:'#16a34a'}[vst];
+  var vstL={due:'⚠ Verify Due',soon:'⏳ Verify Soon',ok:'✓ Verified'}[vst];
+  var circ=2*Math.PI*30;
+  var r=score/100;
+
+
+  // Age from DOB
+  var ageStr='';
+  if(a['_dob']){try{var age=new Date().getFullYear()-new Date(a['_dob']).getFullYear();ageStr=age+' yrs';}catch(e){}}
+
+
+  function infoChip(icon,text){
+    if(!text) return '';
+    return '<div style="display:flex;align-items:center;gap:7px;padding:8px 0;border-bottom:0.5px solid rgba(0,0,0,0.05)">'
+      +'<span style="font-size:14px;width:20px;text-align:center;flex-shrink:0">'+icon+'</span>'
+      +'<span style="font-size:13px;color:var(--t)">'+text+'</span></div>';
+  }
+  function linkChip(icon,text,href){
+    if(!text) return '';
+    return '<div style="display:flex;align-items:center;gap:7px;padding:8px 0;border-bottom:0.5px solid rgba(0,0,0,0.05)">'
+      +'<span style="font-size:14px;width:20px;text-align:center;flex-shrink:0">'+icon+'</span>'
+      +'<a href="'+href+'" target="_blank" style="font-size:13px;color:var(--ac);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px">'+text+'</a></div>';
+  }
+
+
+  var body='';
+
+
+  // ── HERO HEADER ──
+  body+='<div style="background:linear-gradient(135deg,'+c+'22,'+c+'08);border-radius:16px;padding:24px;margin-bottom:16px;position:relative;overflow:hidden">'
+    +'<div style="position:absolute;top:-20px;right:-20px;width:120px;height:120px;border-radius:50%;background:'+c+'15"></div>'
+    +'<div style="display:flex;gap:20px;align-items:flex-start">'
+    // Avatar / Photo
+    +'<div style="flex-shrink:0">'
+    +(a['_photo']
+      ?'<img src="'+a['_photo']+'" style="width:80px;height:80px;border-radius:20px;object-fit:cover;border:3px solid '+c+'44" onerror="this.style.display=\'none\';this.nextSibling.style.display=\'flex\'">'
+      :'')
+    +'<div style="width:80px;height:80px;border-radius:20px;background:'+c+';display:'+(a['_photo']?'none':'flex')+';align-items:center;justify-content:center;font-size:28px;font-weight:800;color:#fff;letter-spacing:-1px;box-shadow:0 8px 24px '+c+'44">'+ini+'</div>'
+    +'</div>'
+    // Name block
+    +'<div style="flex:1;min-width:0">'
+    +'<div style="font-size:22px;font-weight:800;color:var(--t);letter-spacing:-0.5px;line-height:1.2">'+a['Name of the alumni']+'</div>'
+    +'<div style="font-size:14px;color:var(--t2);margin-top:4px;font-weight:500">'+(a['Designation']||'Alumni')+'</div>'
+    +'<div style="font-size:13px;color:var(--t3);margin-top:2px">'+(a['Organization/Institute/University']||'')+'</div>'
+    +'<div style="display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap">'
+    +'<span style="padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;background:'+vstC+'22;color:'+vstC+'">'+vstL+'</span>'
+    +(a['Sector']?'<span style="padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;background:'+c+'18;color:'+c+'">'+a['Sector']+'</span>':'')
+    +([a['City'],a['Country']].filter(Boolean).length?'<span style="font-size:12px;color:var(--t3)">📍 '+[a['City'],a['Country']].filter(Boolean).join(', ')+'</span>':'')
+    +'</div>'
+    +'</div>'
+    // Engagement ring + Profile % ring
+    +'<div style="flex-shrink:0;text-align:center;display:flex;flex-direction:column;gap:8px">'
+    // Engagement ring
+    +'<div>'
+    +'<div style="position:relative;display:inline-block">'
+    +'<svg width="64" height="64" viewBox="0 0 70 70"><circle cx="35" cy="35" r="30" fill="none" stroke="'+c+'22" stroke-width="5"/>'
+    +'<circle cx="35" cy="35" r="30" fill="none" stroke="'+c+'" stroke-width="5" stroke-dasharray="'+circ+'" stroke-dashoffset="'+(circ*(1-r))+'" stroke-linecap="round" transform="rotate(-90 35 35)"/></svg>'
+    +'<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">'
+    +'<div style="font-size:14px;font-weight:800;color:'+c+'">'+score+'</div>'
+    +'<div style="font-size:8px;color:var(--t3);font-weight:500;text-transform:uppercase">Score</div>'
+    +'</div></div></div>'
+    // Profile % ring
+    +'<div>'
+    +(function(){
+      var pct=profPct(a);
+      var pc=profPctColor(pct);
+      var pl=profPctLabel(pct);
+      var pcirc=2*Math.PI*30;
+      var pr=pct/100;
+      return '<div style="position:relative;display:inline-block">'
+        +'<svg width="64" height="64" viewBox="0 0 70 70"><circle cx="35" cy="35" r="30" fill="none" stroke="'+pc+'22" stroke-width="5"/>'
+        +'<circle cx="35" cy="35" r="30" fill="none" stroke="'+pc+'" stroke-width="5" stroke-dasharray="'+pcirc+'" stroke-dashoffset="'+(pcirc*(1-pr))+'" stroke-linecap="round" transform="rotate(-90 35 35)"/></svg>'
+        +'<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">'
+        +'<div style="font-size:13px;font-weight:800;color:'+pc+'">'+pct+'%</div>'
+        +'<div style="font-size:7px;color:var(--t3);font-weight:500;text-transform:uppercase">Profile</div>'
+        +'</div></div>';
+    })()
+    +'</div>'
+    +'<div style="font-size:10px;color:var(--t3);text-align:center">'+evs.length+' events · '+fmtMoney(donTot)+'</div>'
+    +'</div>'
+    +'</div>'
+    // Action buttons
+    +'<div style="display:flex;gap:8px;margin-top:16px">'
+    +'<button onclick="doVerify(\''+roll+'\');closeM(\'m-prof\')" style="flex:1;padding:9px;border-radius:10px;border:1px solid '+vstC+'44;background:'+vstC+'11;color:'+vstC+';font-size:12px;font-weight:600;cursor:pointer;font-family:var(--fn)">✓ Mark Verified</button>'
+    +'<button onclick="closeM(\'m-prof\');openJC(\''+roll+'\')" style="flex:1;padding:9px;border-radius:10px;border:none;background:'+c+';color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--fn)">↺ Log Change</button>'
+    +'<button onclick="openDonFor(\''+roll+'\')" style="flex:1;padding:9px;border-radius:10px;border:1px solid #16a34a44;background:#f0fdf4;color:#16a34a;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--fn)">+ Donation</button>'
+    +'</div>'
+    +'</div>';
+
+
+  // ── TWO-COLUMN BODY ──
+  body+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">';
+
+
+  // LEFT — Personal & Contact
+  body+='<div>';
+
+
+  // Personal info card
+  body+='<div style="background:#fff;border-radius:14px;border:0.5px solid rgba(0,0,0,0.08);padding:16px 18px;margin-bottom:12px">'
+    +'<div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">👤 Personal</div>'
+    +infoChip('🎓','Roll No: '+a['Roll No']+'  ·  Batch '+a['YOG'])
+    +infoChip('📚',a['Course'])
+    +(ageStr?infoChip('🎂',(a['_dob']?fmtDate(a['_dob'])+' ('+ageStr+')':'')):'')
+    +infoChip('⚧',a['_gender'])
+    +infoChip('🏠',a['_hometown']?'Hometown: '+a['_hometown']:'')
+    +infoChip('💍',a['_marital'])
+    +(a['_awards']?infoChip('🏆',a['_awards']):'')
+    +'</div>';
+
+
+  // Contact card
+  body+='<div style="background:#fff;border-radius:14px;border:0.5px solid rgba(0,0,0,0.08);padding:16px 18px;margin-bottom:12px">'
+    +'<div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">📬 Contact</div>'
+    +infoChip('📱',a['_phone'])
+    +infoChip('🆘',a['_friend']?'Emergency: '+a['_friend']:'')
+    +(a['IITGn Email']?infoChip('🎓',a['IITGn Email']):'')
+    +(a['Personal Email ID']?infoChip('✉️',a['Personal Email ID']):'')
+    +(a['Work Email ID']?infoChip('💼',a['Work Email ID']):'')
+    +(a['Linkedin']?linkChip('🔗',a['Linkedin'],'https://'+a['Linkedin'].replace(/^https?:\/\//,'')):'')
+    +'</div>';
+
+
+  // Profile completeness card
+  var pct=profPct(a);
+  var pc=profPctColor(pct);
+  var missingFields=PROF_FIELDS.filter(function(f){return !a[f.key]||String(a[f.key]).trim()==='';});
+  body+='<div style="background:#fff;border-radius:14px;border:1.5px solid '+pc+'44;padding:16px 18px;margin-bottom:12px">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
+    +'<div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:1px">📋 Profile Completeness</div>'
+    +'<span style="font-size:18px;font-weight:800;color:'+pc+'">'+pct+'%</span>'
+    +'</div>'
+    +'<div style="height:8px;background:#f0efe9;border-radius:6px;overflow:hidden;margin-bottom:10px">'
+    +'<div style="height:100%;width:'+pct+'%;background:'+pc+';border-radius:6px;transition:width .5s"></div>'
+    +'</div>'
+    +(missingFields.length>0
+      ?'<div style="font-size:11px;color:var(--t3);margin-bottom:6px">Missing fields:</div>'
+       +'<div style="display:flex;flex-wrap:wrap;gap:5px">'
+       +missingFields.map(function(f){
+         return '<span style="padding:2px 8px;border-radius:20px;background:#fef2f2;color:#dc2626;font-size:10px;font-weight:500">'+f.label+'</span>';
+       }).join('')
+       +'</div>'
+      :'<div style="font-size:12px;color:#16a34a;font-weight:600">✓ Profile is complete!</div>'
+    )
+    +'</div>';
+    body+='<div style="background:#fffbeb;border-radius:14px;border:0.5px solid #fcd34d55;padding:14px 16px">'
+      +'<div style="font-size:10px;font-weight:700;color:#d97706;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">📝 Notes</div>'
+      +'<div style="font-size:13px;color:var(--t2);line-height:1.6">'+a['_notes']+'</div>'
+      +'</div>';
+  }
+
+
+  body+='</div>';
+
+
+  // RIGHT — Career, Donations, Events
+  body+='<div>';
+
+
+  // Current position card
+  body+='<div style="background:#fff;border-radius:14px;border:0.5px solid rgba(0,0,0,0.08);padding:16px 18px;margin-bottom:12px">'
+    +'<div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">💼 Current Position</div>'
+    +'<div style="display:flex;gap:12px;align-items:flex-start">'
+    +'<div style="width:40px;height:40px;border-radius:10px;background:'+c+'18;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🏢</div>'
+    +'<div><div style="font-weight:700;font-size:14px;color:var(--t)">'+(a['Designation']||'—')+'</div>'
+    +'<div style="font-size:13px;color:var(--t2);margin-top:2px">'+(a['Organization/Institute/University']||'—')+'</div>'
+    +'<div style="font-size:12px;color:var(--t3);margin-top:4px">'+[a['City'],a['State/ Province'],a['Country']].filter(Boolean).join(', ')+'</div>'
+    +'<div style="font-size:12px;color:var(--t3);margin-top:2px">'+(a['Month and Year of Joining']?'Since '+a['Month and Year of Joining']:'')+'</div>'
+    +'</div></div>'
+    +'</div>';
+
+
+  // Job history
+  if(hist.length){
+    body+='<div style="background:#fff;border-radius:14px;border:0.5px solid rgba(0,0,0,0.08);padding:16px 18px;margin-bottom:12px">'
+      +'<div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">🔄 Career History</div>';
+    var tColors=['#6366f1','#10b981','#f59e0b','#ec4899','#0d9488'];
+    hist.forEach(function(h,i){
+      var tc=tColors[i%tColors.length];
+      body+='<div style="display:flex;gap:12px;margin-bottom:12px;padding-bottom:12px;border-bottom:'+(i<hist.length-1?'0.5px solid rgba(0,0,0,0.06)':'none')+'">'
+        +'<div style="display:flex;flex-direction:column;align-items:center;gap:0;flex-shrink:0">'
+        +'<div style="width:10px;height:10px;border-radius:50%;background:'+tc+';flex-shrink:0"></div>'
+        +(i<hist.length-1?'<div style="width:1px;flex:1;background:rgba(0,0,0,0.08);margin:3px 0"></div>':'')
+        +'</div>'
+        +'<div style="flex:1"><div style="font-weight:600;font-size:13px;color:var(--t)">'+(h.designation||'—')+'</div>'
+        +'<div style="font-size:12px;color:var(--t2);margin-top:1px">'+(h.organization||'—')+'</div>'
+        +'<div style="font-size:11px;color:var(--t3);margin-top:2px">'+[h.city,h.country].filter(Boolean).join(', ')+(h.changeDate?' · '+fmtDate(h.changeDate):'')+'</div>'
+        +(h.notes?'<div style="font-size:11px;color:var(--t3);margin-top:1px;font-style:italic">'+h.notes+'</div>':'')
+        +'</div></div>';
+    });
+    body+='</div>';
+  }
+
+
+  // Donations — grouped by year
+  body+='<div style="background:#fff;border-radius:14px;border:0.5px solid rgba(0,0,0,0.08);padding:16px 18px;margin-bottom:12px">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">'
+    +'<div>'
+    +'<div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:1px">💰 Donations</div>'
+    +(donTot>0?'<div style="font-size:18px;font-weight:800;color:#16a34a;margin-top:2px">'+fmtMoney(donTot)+'</div>':'')
+    +'</div>'
+    +'<button onclick="openDonFor(\''+roll+'\')" style="padding:6px 14px;border-radius:8px;border:0.5px solid #16a34a55;background:#f0fdf4;color:#16a34a;font-size:11px;font-weight:600;cursor:pointer;font-family:var(--fn)">+ Add</button>'
+    +'</div>';
+
+
+  if(dons.length){
+    // Group by Financial Year (April 1 to March 31)
+    var byYear={};
+    dons.forEach(function(d){
+      var fy='Unknown';
+      if(d.date){
+        try{
+          var dt=new Date(d.date);
+          var yr=dt.getFullYear();
+          var mo=dt.getMonth(); // 0=Jan, 3=Apr
+          // If month is Jan(0), Feb(1), Mar(2) → belongs to previous FY
+          var fyStart = mo>=3 ? yr : yr-1;
+          fy='FY '+fyStart+'-'+(String(fyStart+1).slice(-2));
+        }catch(e){}
+      }
+      if(!byYear[fy]) byYear[fy]=[];
+      byYear[fy].push(d);
+    });
+    // Sort FY descending
+    var years=Object.keys(byYear).sort(function(a,b){
+      var ay=parseInt(a.replace('FY ',''))||0;
+      var by2=parseInt(b.replace('FY ',''))||0;
+      return by2-ay;
+    });
+    years.forEach(function(yr){
+      var yearDons=byYear[yr];
+      var yearTotal=yearDons.reduce(function(s,d){return s+Number(d.amount||0);},0);
+      // Year header
+      body+='<div style="margin-bottom:10px">'
+        +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'
+        +'<div style="display:flex;align-items:center;gap:8px">'
+        +'<div style="width:28px;height:28px;border-radius:8px;background:#16a34a15;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#16a34a;text-align:center;line-height:1.2">'+String(yr).replace('FY ','').replace('-','<br>')+'</div>'
+        +'<span style="font-size:12px;font-weight:700;color:var(--t)">'+yr+'</span>'
+        +'<span style="font-size:11px;color:var(--t3)">('+yearDons.length+' donation'+(yearDons.length>1?'s':'')+')</span>'
+        +'</div>'
+        +'<span style="font-size:13px;font-weight:700;color:#16a34a">'+fmtMoney(yearTotal)+'</span>'
+        +'</div>'
+        // Individual donations for this year
+        +'<div style="background:#f9fafb;border-radius:10px;overflow:hidden;border:0.5px solid rgba(0,0,0,0.06)">';
+      yearDons.forEach(function(d,i){
+        body+='<div style="display:flex;align-items:center;gap:10px;padding:10px 13px;border-bottom:'+(i<yearDons.length-1?'0.5px solid rgba(0,0,0,0.05)':'none')+'">'
+          +'<div style="flex:1">'
+          +'<div style="font-size:13px;font-weight:500;color:var(--t)">'+(d.purpose||'General Donation')+'</div>'
+          +(d.notes?'<div style="font-size:11px;color:var(--t3);margin-top:1px">'+d.notes+'</div>':'')
+          +'</div>'
+          +'<div style="text-align:right;flex-shrink:0">'
+          +'<div style="font-size:13px;font-weight:700;color:#16a34a">'+fmtMoney(d.amount)+'</div>'
+          +'<div style="font-size:10px;color:var(--t3);margin-top:1px">'+fmtDate(d.date)+'</div>'
+          +'</div>'
+          +'</div>';
+      });
+      body+='</div></div>';
+    });
+    // Grand total
+    body+='<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:linear-gradient(135deg,#f0fdf4,#dcfce7);border-radius:10px;margin-top:4px">'
+      +'<div>'
+      +'<div style="font-size:11px;font-weight:700;color:#16a34a;text-transform:uppercase;letter-spacing:.5px">Grand Total</div>'
+      +'<div style="font-size:11px;color:#16a34a99;margin-top:1px">'+dons.length+' donations across '+years.length+' year'+(years.length>1?'s':'')+'</div>'
+      +'</div>'
+      +'<div style="font-size:20px;font-weight:800;color:#16a34a">'+fmtMoney(donTot)+'</div>'
+      +'</div>';
+  } else {
+    body+='<div style="text-align:center;padding:20px;color:var(--t3)">'
+      +'<div style="font-size:28px;margin-bottom:8px">💳</div>'
+      +'<div style="font-size:13px">No donations recorded yet</div>'
+      +'<div style="font-size:11px;margin-top:4px;color:var(--t3)">Click + Add to record a donation</div>'
+      +'</div>';
+  }
+  body+='</div>';
+
+
+  // Events & Visits — split by type
+  var visitTypes=['Campus Visit','Hostel Stay','Guest Lecture','Alumni Meet','Workshop','Other'];
+  var pureEvents=evs.filter(function(e){return !e.type||e.type==='Event';});
+  var visits=evs.filter(function(e){return visitTypes.indexOf(e.type)>=0;});
+
+
+  var typeConf2={
+    'Campus Visit':{icon:'🏫',color:'#10b981'},
+    'Hostel Stay': {icon:'🛏',color:'#0d9488'},
+    'Guest Lecture':{icon:'🎤',color:'#f59e0b'},
+    'Alumni Meet': {icon:'🤝',color:'#ec4899'},
+    'Workshop':    {icon:'🛠',color:'#8b5cf6'},
+    'Other':       {icon:'📌',color:'#6b7280'}
+  };
+
+
+  // Campus Visits / Engagement section
+  if(visits.length){
+    body+='<div style="background:#fff;border-radius:14px;border:0.5px solid rgba(0,0,0,0.08);padding:16px 18px;margin-bottom:12px">'
+      +'<div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">🏫 Campus Visits & Engagements ('+visits.length+')</div>';
+    visits.sort(function(a,b){return new Date(b.date)-new Date(a.date);}).forEach(function(e){
+      var tc=typeConf2[e.type]||{icon:'📌',color:'#6b7280'};
+      body+='<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:0.5px solid rgba(0,0,0,0.05)">'
+        +'<div style="width:34px;height:34px;border-radius:9px;background:'+tc.color+'15;display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0">'
+        +'<div style="font-size:14px;line-height:1">'+tc.icon+'</div>'
+        +'<div style="font-size:8px;font-weight:700;color:'+tc.color+';margin-top:1px">'+new Date(e.date).getDate()+' '+new Date(e.date).toLocaleString('default',{month:'short'})+'</div>'
+        +'</div>'
+        +'<div style="flex:1">'
+        +'<div style="font-size:13px;font-weight:500;color:var(--t)">'+e.title+'</div>'
+        +'<div style="display:flex;align-items:center;gap:6px;margin-top:2px">'
+        +'<span style="font-size:10px;font-weight:600;background:'+tc.color+'15;color:'+tc.color+';padding:1px 7px;border-radius:10px">'+e.type+'</span>'
+        +(e.location?'<span style="font-size:11px;color:var(--t3)">📍 '+e.location+'</span>':'')
+        +'</div>'
+        +'</div>'
+        +'<div style="font-size:11px;color:var(--t3);flex-shrink:0">'+fmtDate(e.date)+'</div>'
+        +'</div>';
+    });
+    body+='</div>';
+  }
+
+
+  // Regular Events section
+  body+='<div style="background:#fff;border-radius:14px;border:0.5px solid rgba(0,0,0,0.08);padding:16px 18px">'
+    +'<div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">🎉 Events Attended ('+pureEvents.length+')</div>';
+  if(pureEvents.length){
+    pureEvents.sort(function(a,b){return new Date(b.date)-new Date(a.date);}).forEach(function(e){
+      body+='<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:0.5px solid rgba(0,0,0,0.05)">'
+        +'<div style="width:34px;height:34px;border-radius:9px;background:#6366f115;display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0">'
+        +'<div style="font-size:11px;font-weight:800;color:#6366f1;line-height:1">'+new Date(e.date).getDate()+'</div>'
+        +'<div style="font-size:8px;font-weight:600;color:#6366f199">'+new Date(e.date).toLocaleString('default',{month:'short'})+'</div>'
+        +'</div>'
+        +'<div style="flex:1"><div style="font-size:13px;font-weight:500;color:var(--t)">'+e.title+'</div>'
+        +(e.location?'<div style="font-size:11px;color:var(--t3);margin-top:1px">📍 '+e.location+'</div>':'')
+        +'</div>'
+        +'<div style="font-size:11px;color:var(--t3);flex-shrink:0">'+fmtDate(e.date)+'</div>'
+        +'</div>';
+    });
+  } else {
+    body+='<div style="text-align:center;padding:16px;color:var(--t3);font-size:13px">No events attended yet</div>';
+  }
+  body+='</div>';
+  body+='</div>';
+
+
+  body+='</div>'; // close two-col grid
+
+
+  gi('prof-body').innerHTML=body;
+  openM('m-prof');
+}
+
+
+// ══ MODALS ════════════════════════════════════════════════════
+function openM(id){gi(id).classList.add('open');}
+function closeM(id){gi(id).classList.remove('open');}
+
+
+function openAdd(){
+  EDIT_ROLL=null;gi('m-alm-t').textContent='Add Alumni';
+  ['yog','roll','course','name','desig','org','city','state','country','joining','linkedin','iitgn','personal','work','notes','phone','friend','hometown','awards','photo','dob'].forEach(function(f){gi('a-'+f).value='';});
+  gi('a-sector').value=''; gi('a-gender').value=''; gi('a-marital').value='';
+  openM('m-alm');
+}
+function openEdit(roll){
+  EDIT_ROLL=roll;var a=DB.alumni.filter(function(x){return x['Roll No']==roll;})[0];if(!a)return;
+  gi('m-alm-t').textContent='Edit Alumni';
+  gi('a-yog').value=a['YOG']||'';gi('a-roll').value=a['Roll No']||'';gi('a-course').value=a['Course']||'';
+  gi('a-name').value=a['Name of the alumni']||'';gi('a-desig').value=a['Designation']||'';
+  gi('a-org').value=a['Organization/Institute/University']||'';gi('a-sector').value=a['Sector']||'';
+  gi('a-city').value=a['City']||'';gi('a-state').value=a['State/ Province']||'';gi('a-country').value=a['Country']||'';
+  gi('a-joining').value=a['Month and Year of Joining']||'';gi('a-linkedin').value=a['Linkedin']||'';
+  gi('a-iitgn').value=a['IITGn Email']||'';gi('a-personal').value=a['Personal Email ID']||'';
+  gi('a-work').value=a['Work Email ID']||'';gi('a-notes').value=a['_notes']||'';
+  gi('a-phone').value=a['_phone']||'';gi('a-friend').value=a['_friend']||'';
+  gi('a-hometown').value=a['_hometown']||'';gi('a-awards').value=a['_awards']||'';
+  gi('a-photo').value=a['_photo']||'';gi('a-dob').value=a['_dob']||'';
+  gi('a-gender').value=a['_gender']||'';gi('a-marital').value=a['_marital']||'';
+  openM('m-alm');
+}
+function saveAlumni(){
+  var name=gi('a-name').value.trim(),roll=gi('a-roll').value.trim(),yog=gi('a-yog').value.trim();
+  if(!name||!roll||!yog){toast('Name, Roll No and YOG are required','bad');return;}
+  var existing=EDIT_ROLL?DB.alumni.filter(function(x){return x['Roll No']==EDIT_ROLL;})[0]:null;
+  var rec=existing?Object.assign({},existing):{_id:'',_color:COLORS[DB.alumni.length%COLORS.length],_lastVerified:'',_notes:''};
+  rec['YOG']=yog;rec['Roll No']=roll;rec['Course']=gi('a-course').value.trim();
+  rec['Name of the alumni']=name;rec['Designation']=gi('a-desig').value.trim();
+  rec['Organization/Institute/University']=gi('a-org').value.trim();rec['Sector']=gi('a-sector').value;
+  rec['City']=gi('a-city').value.trim();rec['State/ Province']=gi('a-state').value.trim();
+  rec['Country']=gi('a-country').value.trim();rec['Month and Year of Joining']=gi('a-joining').value.trim();
+  rec['Linkedin']=gi('a-linkedin').value.trim();rec['IITGn Email']=gi('a-iitgn').value.trim();
+  rec['Personal Email ID']=gi('a-personal').value.trim();rec['Work Email ID']=gi('a-work').value.trim();
+  rec['_notes']=gi('a-notes').value.trim();
+  rec['_phone']=gi('a-phone').value.trim();rec['_friend']=gi('a-friend').value.trim();
+  rec['_hometown']=gi('a-hometown').value.trim();rec['_awards']=gi('a-awards').value.trim();
+  rec['_photo']=gi('a-photo').value.trim();rec['_dob']=gi('a-dob').value.trim();
+  rec['_gender']=gi('a-gender').value;rec['_marital']=gi('a-marital').value;
+  if(EDIT_ROLL){var idx=DB.alumni.findIndex(function(x){return x['Roll No']==EDIT_ROLL;});if(idx>=0)DB.alumni[idx]=rec;}
+  else DB.alumni.push(rec);
+  call('saveAlumni',rec,function(res){if(res.ok){toast(EDIT_ROLL?'Updated':'Added','ok');closeM('m-alm');render();badge();}else toast('Failed: '+res.error,'bad');});
+}
+function delAlumni(roll){
+  if(!confirm('Delete this alumni and all their records?'))return;
+  DB.alumni=DB.alumni.filter(function(a){return a['Roll No']!=roll;});
+  DB.donations=DB.donations.filter(function(d){return d.alumniRoll!=roll;});
+  DB.attendance=DB.attendance.filter(function(a){return a.alumniRoll!=roll;});
+  DB.jobHistory=DB.jobHistory.filter(function(h){return h.alumniRoll!=roll;});
+  call('deleteAlumni',{roll:roll},function(res){if(res.ok){toast('Deleted','inf');render();badge();}});
+}
+
+
+function openJC(roll){
+  JC_ROLL=roll;var a=DB.alumni.filter(function(x){return x['Roll No']==roll;})[0];if(!a)return;
+  gi('jc-cur').innerHTML='<strong>Current:</strong> '+(a['Designation']||'—')+' @ '+(a['Organization/Institute/University']||'—')+', '+(a['City']||'—');
+  gi('jc-desig').value=a['Designation']||'';gi('jc-org').value=a['Organization/Institute/University']||'';
+  gi('jc-city').value=a['City']||'';gi('jc-state').value=a['State/ Province']||'';
+  gi('jc-country').value=a['Country']||'';gi('jc-sector').value=a['Sector']||'';
+  gi('jc-joining').value='';gi('jc-date').value=new Date().toISOString().split('T')[0];gi('jc-notes').value='';
+  openM('m-jc');
+}
+function saveJobChange(){
+  var a=DB.alumni.filter(function(x){return x['Roll No']==JC_ROLL;})[0];if(!a)return;
+  var today=new Date().toISOString().split('T')[0];
+  var hist={_id:uid(),alumniRoll:JC_ROLL,changeDate:gi('jc-date').value||today,
+    designation:gi('jc-desig').value.trim(),organization:gi('jc-org').value.trim(),
+    city:gi('jc-city').value.trim(),state:gi('jc-state').value.trim(),country:gi('jc-country').value.trim(),
+    sector:gi('jc-sector').value,joiningDate:gi('jc-joining').value.trim(),notes:gi('jc-notes').value.trim()};
+  var payload={roll:JC_ROLL,designation:hist.designation,organization:hist.organization,
+    city:hist.city,state:hist.state,country:hist.country,sector:hist.sector,joiningDate:hist.joiningDate,history:hist};
+  var idx=DB.alumni.findIndex(function(x){return x['Roll No']==JC_ROLL;});
+  if(idx>=0){
+    if(hist.designation)DB.alumni[idx]['Designation']=hist.designation;
+    if(hist.organization)DB.alumni[idx]['Organization/Institute/University']=hist.organization;
+    if(hist.city)DB.alumni[idx]['City']=hist.city;
+    if(hist.state)DB.alumni[idx]['State/ Province']=hist.state;
+    if(hist.country)DB.alumni[idx]['Country']=hist.country;
+    if(hist.sector)DB.alumni[idx]['Sector']=hist.sector;
+    if(hist.joiningDate)DB.alumni[idx]['Month and Year of Joining']=hist.joiningDate;
+    DB.alumni[idx]['_lastVerified']=today;
+  }
+  DB.jobHistory.push(hist);
+  call('saveJobChange',payload,function(res){if(res.ok){toast('Change logged','ok');closeM('m-jc');render();badge();}else toast('Failed: '+res.error,'bad');});
+}
+
+
+function doVerify(roll){
+  var today=new Date().toISOString().split('T')[0];
+  var idx=DB.alumni.findIndex(function(x){return x['Roll No']==roll;});
+  if(idx>=0)DB.alumni[idx]['_lastVerified']=today;
+  call('markVerified',{roll:roll},function(res){if(res.ok){toast('Marked as verified','ok');render();badge();}});
+}
+
+
+function openAddDon(){
+  DON_CTX=null;gi('don-name-row').style.display='';
+  gi('don-who').value='';gi('don-amt').value='';
+  gi('don-dt').value=new Date().toISOString().split('T')[0];
+  gi('don-pur').value='';gi('don-nt').value='';
+  gi('don-list').innerHTML=DB.alumni.map(function(a){return '<option value="'+a['Roll No']+'">'+a['Name of the alumni']+' ('+a['Roll No']+')</option>';}).join('');
+  openM('m-don');
+}
+function openDonFor(roll){DON_CTX=roll;openAddDon();gi('don-name-row').style.display='none';}
+function saveDonation(){
+  var roll=DON_CTX;
+  if(!roll){var v=gi('don-who').value.trim();var found=DB.alumni.filter(function(a){return a['Roll No']==v||a['Name of the alumni'].toLowerCase().indexOf(v.toLowerCase())>=0;})[0];if(!found){toast('Alumni not found','bad');return;}roll=found['Roll No'];}
+  var amt=parseFloat(gi('don-amt').value);if(!amt||amt<=0){toast('Enter a valid amount','bad');return;}
+  var don={_id:uid(),alumniRoll:roll,amount:amt,date:gi('don-dt').value,purpose:gi('don-pur').value.trim(),notes:gi('don-nt').value.trim()};
+  DB.donations.push(don);
+  call('saveDonation',don,function(res){if(res.ok){toast('Donation saved','ok');closeM('m-don');render();}else toast('Failed: '+res.error,'bad');});
+}
+function delDon(id){
+  if(!confirm('Delete this donation?'))return;
+  DB.donations=DB.donations.filter(function(d){return d._id!=id;});
+  call('deleteDonation',{id:id},function(res){if(res.ok){toast('Deleted','inf');render();}});
+}
+
+
+function openAddEvent(){
+  ['ev-title','ev-loc','ev-desc'].forEach(function(f){gi(f).value='';});
+  gi('ev-date').value='';
+  gi('ev-type').value='';
+  openM('m-ev');
+}
+function saveEvent(){
+  var title=gi('ev-title').value.trim(),date=gi('ev-date').value;
+  if(!title||!date){toast('Title and date required','bad');return;}
+  var ev={_id:uid(),title:title,date:date,type:gi('ev-type').value||'Event',location:gi('ev-loc').value.trim(),description:gi('ev-desc').value.trim(),createdAt:new Date().toISOString()};
+  DB.events.push(ev);
+  call('saveEvent',ev,function(res){if(res.ok){toast('Saved','ok');closeM('m-ev');render();}else toast('Failed: '+res.error,'bad');});
+}
+function delEvent(id){
+  if(!confirm('Delete this event?'))return;
+  DB.events=DB.events.filter(function(e){return e._id!=id;});
+  DB.attendance=DB.attendance.filter(function(a){return a.eventId!=id;});
+  call('deleteEvent',{id:id},function(res){if(res.ok){toast('Deleted','inf');render();}});
+}
+
+
+function openAtt(eid){
+  ATT_EID=eid;var ev=DB.events.filter(function(e){return e._id==eid;})[0];if(!ev)return;
+  gi('att-t').textContent='Attendance: '+ev.title;
+  var att=new Set(DB.attendance.filter(function(a){return a.eventId==eid;}).map(function(a){return a.alumniRoll;}));
+  gi('att-body').innerHTML='<div style="font-size:12px;color:var(--t2);margin-bottom:10px">Check all alumni who attended:</div>'
+    +'<div style="max-height:380px;overflow-y:auto">'
+    +DB.alumni.map(function(a){
+      var roll=a['Roll No'],chk=att.has(roll);
+      return '<label style="display:flex;align-items:center;gap:9px;padding:8px;border-radius:8px;cursor:pointer;margin-bottom:3px;background:'+(chk?'var(--ac2)':'transparent')+'">'
+        +'<input type="checkbox" id="att-'+roll+'" '+(chk?'checked':'')+' style="width:14px;height:14px;cursor:pointer">'
+        +av(a,26)+'<div><div style="font-weight:500;font-size:13px">'+a['Name of the alumni']+'</div>'
+        +'<div style="font-size:11px;color:var(--t3)">'+roll+' · '+a['YOG']+'</div></div></label>';
+    }).join('')+'</div>';
+  openM('m-att');
+}
+function saveAtt(){
+  var rolls=DB.alumni.filter(function(a){var cb=gi('att-'+a['Roll No']);return cb&&cb.checked;}).map(function(a){return a['Roll No'];});
+  DB.attendance=DB.attendance.filter(function(a){return a.eventId!=ATT_EID;});
+  rolls.forEach(function(r){DB.attendance.push({eventId:ATT_EID,alumniRoll:r});});
+  call('saveAttendance',{eventId:ATT_EID,rolls:rolls},function(res){if(res.ok){toast('Attendance saved','ok');closeM('m-att');render();}});
+}
+
+
+// ══ SORT / SEARCH / FILTER ════════════════════════════════════
+function doSort(col){
+  if(!col)return;
+  SORT.dir=SORT.col===col?-SORT.dir:1;
+  SORT.col=col;
+  render();
+}
+function doSQ(v){SQ=v;PAGE=1;render();}
+function goPage(n){PAGE=n;render();}
+function setAF(k,v){AF[k]=v;render();}
+function clearAF(){AF={name:'',roll:'',yog:'',course:'',sector:'',org:'',country:'',city:'',kw:'',minPct:'',maxPct:'',minEng:'',maxEng:''};render();}
+
+
+// ══ EXPORT ═══════════════════════════════════════════════════
+var CSV_COLS=[
+  'YOG','Roll No','Course','Name of the alumni','Designation',
+  'Organization/Institute/University','Sector','City','State/ Province',
+  'Country','Month and Year of Joining','Linkedin','IITGn Email',
+  'Personal Email ID','Work Email ID',
+  '_phone','_dob','_gender','_hometown','_marital','_friend','_awards'
+];
+var CSV_LABELS=[
+  'YOG','Roll No','Course','Name','Designation','Organization','Sector',
+  'City','State','Country','Joining Date','LinkedIn','IITGn Email',
+  'Personal Email','Work Email','Phone','DOB','Gender','Hometown',
+  'Marital Status','Emergency Contact','Awards'
+];
+
+
+function buildCSV(rows){
+  var lines=[CSV_LABELS.map(function(l){return '"'+l+'"';}).join(',')];
+  rows.forEach(function(a){
+    lines.push(CSV_COLS.map(function(c){
+      return '"'+String(a[c]||'').replace(/"/g,'""')+'"';
+    }).join(','));
+  });
+  return lines.join('\n');
+}
+function triggerDownload(csv,filename){
+  var el=document.createElement('a');
+  el.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  el.download=filename;el.click();
+}
+
+
+// Download all alumni (sidebar export)
+function doExport(){
+  triggerDownload(buildCSV(DB.alumni),'all_alumni_'+new Date().toISOString().slice(0,10)+'.csv');
+  toast('Downloaded all '+DB.alumni.length+' alumni','ok');
+}
+
+
+// Download currently filtered/searched alumni
+function downloadFilteredCSV(source){
+  var rows;
+  if(source==='search'){
+    // From Advanced Search
+    if(AI_MODE==='ai'&&AI_RESULT){
+      var rs={};AI_RESULT.rolls.forEach(function(r){rs[r]=true;});
+      rows=DB.alumni.filter(function(a){return rs[a['Roll No']];});
+    } else {
+      rows=applyManualFilters();
+    }
+  } else {
+    // From Alumni Directory — apply current search + sort
+    rows=DB.alumni.slice();
+    if(SQ){
+      var q=SQ.toLowerCase();
+      rows=rows.filter(function(a){
+        return[a['Name of the alumni'],a['Roll No'],a['Organization/Institute/University'],
+          a['Designation'],a['City'],a['YOG']+'',a['Course']].join(' ').toLowerCase().indexOf(q)>=0;
+      });
+    }
+    rows.sort(function(a,b){return((a[SORT.col]||'')>(b[SORT.col]||'')?1:-1)*SORT.dir;});
+  }
+  if(!rows.length){toast('No alumni to download','bad');return;}
+  var label=source==='search'
+    ?(AI_MODE==='ai'&&AI_QUERY?'ai_search_'+AI_QUERY.replace(/\s+/g,'_').slice(0,30):'filtered_alumni')
+    :(SQ?'search_'+SQ.replace(/\s+/g,'_').slice(0,30):'alumni_directory');
+  triggerDownload(buildCSV(rows),label+'_'+new Date().toISOString().slice(0,10)+'.csv');
+  toast('Downloaded '+rows.length+' alumni ✓','ok');
+}
+</script>
+</body>
+</html>
