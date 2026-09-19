@@ -46,7 +46,7 @@ uv.lock
 *.sqlite
 *.db
 uploads/
-data/
+/data/
 
 # Docker
 docker-compose.override.yml

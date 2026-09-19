@@ -110,6 +110,62 @@ async def _require_named_permission(
     return current_user
 
 
+async def check_groups_read(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    return await _require_named_permission(db, current_user, "groups.read")
+
+
+async def check_groups_create(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    return await _require_named_permission(db, current_user, "groups.create")
+
+
+async def check_groups_update(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    return await _require_named_permission(db, current_user, "groups.update")
+
+
+async def check_groups_manage_members(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    return await _require_named_permission(db, current_user, "groups.manage_members")
+
+
+async def check_groups_manage_rules(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    return await _require_named_permission(db, current_user, "groups.manage_rules")
+
+
+async def check_groups_approve(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    return await _require_named_permission(db, current_user, "groups.approve")
+
+
+async def check_constituents_export(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    return await _require_named_permission(db, current_user, "constituents.export")
+
+
+async def check_groups_deactivate(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    return await _require_named_permission(db, current_user, "groups.deactivate")
+
+
 async def check_admin_users(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),

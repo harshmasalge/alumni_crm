@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { api, AuthUser, AdminUser, AdminRole, AdminPermission, AuditEvent } from "../api";
+import { MasterDataPanel } from "./MasterData";
 
-type Tab = "users" | "roles" | "audit";
+type Tab = "users" | "roles" | "audit" | "master";
 
 const inputStyle = { padding: "6px 10px", fontSize: 13, border: "1px solid #cfd4d2", borderRadius: 4 };
 
@@ -30,10 +31,22 @@ function Forbidden({ message }: { message: string }) {
 }
 
 export function Admin({ user }: { user: AuthUser }) {
-  const [tab, setTab] = useState<Tab>("users");
   const canAdmin = user.is_superuser || user.permissions.some((p) => p.startsWith("admin."));
+  // Master-data vocabularies are managed with the existing profile-write
+  // grant (server-enforced as constituents.write); staff without admin.*
+  // see only this tab.
+  const canMaster = user.is_superuser || user.permissions.includes("constituents.write");
+  const [tab, setTab] = useState<Tab>(canAdmin ? "users" : "master");
 
-  if (!canAdmin) return <Forbidden message="Your account has no administration permissions. " />;
+  if (!canAdmin && !canMaster) return <Forbidden message="Your account has no administration permissions. " />;
+
+  const visibleTabs = [
+    ...(canAdmin ? (["users", "roles", "audit"] as Tab[]) : []),
+    ...(canMaster ? (["master"] as Tab[]) : []),
+  ];
+  const tabLabel = (t: Tab) =>
+    t === "users" ? "Users" : t === "roles" ? "Roles & permissions" : t === "audit" ? "Audit log" : "Master data";
+  const activeTab = visibleTabs.includes(tab) ? tab : visibleTabs[0];
 
   return (
     <section className="module-preview" style={{ maxWidth: 1100 }}>
@@ -43,18 +56,21 @@ export function Admin({ user }: { user: AuthUser }) {
         <strong>Live:</strong> users, roles, permissions, and the audit log are served by the
         PostgreSQL-backed API and gated server-side (<code>admin.users</code>, <code>admin.roles</code>,{' '}
         <code>admin.audit</code>). Per ADR-003, new users are email-allowlist entries — no passwords are stored.
+        Segmentation vocabularies (industry, company type, function, seniority) live under Master data and are
+        managed with the profile-write grant; the People filters consume them.
       </div>
       <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-        {(["users", "roles", "audit"] as Tab[]).map((t) => (
-          <button key={t} type="button" className="quiet-button" disabled={tab === t}
+        {visibleTabs.map((t) => (
+          <button key={t} type="button" className="quiet-button" disabled={activeTab === t}
             onClick={() => setTab(t)}>
-            {t === "users" ? "Users" : t === "roles" ? "Roles & permissions" : "Audit log"}
+            {tabLabel(t)}
           </button>
         ))}
       </div>
-      {tab === "users" && <UsersTab />}
-      {tab === "roles" && <RolesTab />}
-      {tab === "audit" && <AuditTab />}
+      {activeTab === "users" && <UsersTab />}
+      {activeTab === "roles" && <RolesTab />}
+      {activeTab === "audit" && <AuditTab />}
+      {activeTab === "master" && <MasterDataPanel canWrite={canMaster} />}
     </section>
   );
 }

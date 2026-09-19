@@ -142,7 +142,7 @@ export const api = {
       }),
 
     updatePerson: (constituentId: string, payload: {
-      first_name?: string; full_name?: string; gender?: string;
+      first_name?: string; full_name?: string; last_name?: string; gender?: string;
       date_of_birth?: string; blood_group?: string; spouse_name?: string;
     }) =>
       request<Person>(`/constituents/${constituentId}/person`, {
@@ -239,6 +239,8 @@ export const api = {
       affiliation_type?: string;
       sector?: string;
       designation?: string;
+      function?: string;
+      seniority_level?: string;
       city?: string;
       state?: string;
       country?: string;
@@ -250,6 +252,151 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(payload),
       }),
+
+  },
+  segmentation: {
+    advancedSearch: (body: AdvancedSearchBody) =>
+      request<{ items: Constituent[]; total: number; page: number; page_size: number; total_pages: number }>(
+        '/constituents/search',
+        { method: 'POST', body: JSON.stringify(body) }
+      ),
+    getFilterFields: () =>
+      request<{ fields: Record<string, FilterFieldSpec> }>('/constituents/search/fields'),
+  },
+  taxonomies: {
+    list: (params: { category?: string; include_inactive?: boolean } = {}) => {
+      const sp = new URLSearchParams();
+      if (params.category) sp.set('category', params.category);
+      if (params.include_inactive) sp.set('include_inactive', 'true');
+      const qs = sp.toString();
+      return request<{ items: Taxonomy[]; total: number }>(`/taxonomies${qs ? `?${qs}` : ''}`);
+    },
+    create: (payload: { category: string; value: string }) =>
+      request<Taxonomy>('/taxonomies', { method: 'POST', body: JSON.stringify(payload) }),
+    update: (id: string, payload: { value?: string; is_active?: boolean }) =>
+      request<Taxonomy>(`/taxonomies/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+    remove: async (id: string): Promise<void> => {
+      const token = getToken();
+      const res = await fetch(`${API_BASE}/taxonomies/${id}`, {
+        method: 'DELETE',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok && res.status !== 204) {
+        const err = await res.json().catch(() => ({ detail: res.statusText }));
+        throw new ApiError(res.status, err.detail || `HTTP ${res.status}`);
+      }
+    },
+  },
+  organisations: {
+    get: (id: string) => request<OrganisationMaster>(`/organisations/${id}`),
+    update: (id: string, payload: Partial<Pick<OrganisationMaster, 'company_type' | 'sector' | 'website_url' | 'hq_city' | 'hq_state' | 'hq_country'>>) =>
+      request<OrganisationMaster>(`/organisations/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  },
+  groups: {
+    list: (params: { type?: string; status?: string; needs_review?: boolean; q?: string; page?: number; page_size?: number } = {}) => {
+      const sp = new URLSearchParams();
+      if (params.type) sp.set('type', params.type);
+      if (params.status) sp.set('status', params.status);
+      if (params.needs_review !== undefined) sp.set('needs_review', String(params.needs_review));
+      if (params.q) sp.set('q', params.q);
+      if (params.page) sp.set('page', String(params.page));
+      if (params.page_size) sp.set('page_size', String(params.page_size));
+      const qs = sp.toString();
+      return request<{ items: Group[]; total: number; page: number; page_size: number; total_pages: number }>(
+        `/groups${qs ? `?${qs}` : ''}`
+      );
+    },
+    create: (payload: { name: string; description?: string; type: string; initial_rule?: FilterGroup }) =>
+      request<Group>('/groups', { method: 'POST', body: JSON.stringify(payload) }),
+    get: (id: string) => request<Group>(`/groups/${id}`),
+    update: (id: string, payload: { name?: string; description?: string }) =>
+      request<Group>(`/groups/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+    deactivate: (id: string) =>
+      request<Group>(`/groups/${id}/deactivate`, { method: 'POST' }),
+    reactivate: (id: string) =>
+      request<Group>(`/groups/${id}/reactivate`, { method: 'POST' }),
+    listMembers: (id: string, params: { page?: number; page_size?: number } = {}) => {
+      const sp = new URLSearchParams();
+      if (params.page) sp.set('page', String(params.page));
+      if (params.page_size) sp.set('page_size', String(params.page_size));
+      const qs = sp.toString();
+      return request<{ items: GroupMember[]; total: number; page: number; page_size: number; total_pages: number }>(
+        `/groups/${id}/members${qs ? `?${qs}` : ''}`
+      );
+    },
+    addMembers: (id: string, constituent_ids: string[]) =>
+      request<{ added: string[]; already_members: string[]; invalid: string[] }>(
+        `/groups/${id}/members`, { method: 'POST', body: JSON.stringify({ constituent_ids }) }
+      ),
+    removeMember: async (id: string, constituentId: string): Promise<void> => {
+      const token = getToken();
+      const res = await fetch(`${API_BASE}/groups/${id}/members/${constituentId}`, {
+        method: 'DELETE',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok && res.status !== 204) {
+        const err = await res.json().catch(() => ({ detail: res.statusText }));
+        throw new ApiError(res.status, err.detail || `HTTP ${res.status}`);
+      }
+    },
+    previewPopulation: (id: string, body: PopulationQuery) =>
+      request<{ matched: number; already_members: number; would_add: number; invalid: string[] }>(
+        `/groups/${id}/members/preview`, { method: 'POST', body: JSON.stringify(body) }
+      ),
+    materializePopulation: (id: string, body: PopulationQuery) =>
+      request<{ matched: number; added: string[]; already_members: number; invalid: string[] }>(
+        `/groups/${id}/members/materialize`, { method: 'POST', body: JSON.stringify(body) }
+      ),
+    listRules: (id: string) => request<RuleVersion[]>(`/groups/${id}/rules`),
+    proposeRule: (id: string, filter: FilterGroup) =>
+      request<RuleVersion>(`/groups/${id}/rules`, { method: 'POST', body: JSON.stringify({ filter }) }),
+    approveRule: (id: string, version: number) =>
+      request<{ rule: RuleVersion; evaluation: { version_number: number; matched: number; additions: number; removals: number; skipped_existing_pending: number } }>(
+        `/groups/${id}/rules/${version}/approve`, { method: 'POST' }
+      ),
+    rejectRule: (id: string, version: number) =>
+      request<RuleVersion>(`/groups/${id}/rules/${version}/reject`, { method: 'POST' }),
+    evaluateRule: (id: string, version: number) =>
+      request<{ version_number: number; matched: number; additions: number; removals: number; skipped_existing_pending: number }>(
+        `/groups/${id}/rules/${version}/evaluate`, { method: 'POST' }
+      ),
+    listProposals: (id: string, params: { status?: string; action?: string; page?: number; page_size?: number } = {}) => {
+      const sp = new URLSearchParams();
+      if (params.status) sp.set('status', params.status);
+      if (params.action) sp.set('action', params.action);
+      if (params.page) sp.set('page', String(params.page));
+      if (params.page_size) sp.set('page_size', String(params.page_size));
+      const qs = sp.toString();
+      return request<{ items: Proposal[]; total: number; page: number; page_size: number; total_pages: number }>(
+        `/groups/${id}/proposals${qs ? `?${qs}` : ''}`
+      );
+    },
+    decideProposals: (id: string, approve: boolean, proposal_ids: string[]) =>
+      request<{ approved_or_rejected: string[]; stale: string[]; already_decided: string[] }>(
+        `/groups/${id}/proposals/${approve ? 'approve' : 'reject'}`,
+        { method: 'POST', body: JSON.stringify({ proposal_ids }) }
+      ),
+  },
+  exports: {
+    fields: () => request<{ items: ExportFieldInfo[] }>('/exports/people/fields'),
+    download: async (body: Record<string, unknown>): Promise<{ blob: Blob; filename: string }> => {
+      const token = getToken();
+      const res = await fetch(`${API_BASE}/exports/people`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: res.statusText }));
+        throw new ApiError(res.status, err.detail || `HTTP ${res.status}`);
+      }
+      const blob = await res.blob();
+      const match = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') || '');
+      return { blob, filename: match ? match[1] : 'people-export.xlsx' };
+    },
   },
   admin: {
     listUsers: (params: { q?: string; page?: number; page_size?: number }) => {
@@ -300,6 +447,7 @@ export interface Person {
   constituent_id: string;
   first_name: string;
   full_name: string;
+  last_name: string | null;
   gender: 'MALE' | 'FEMALE' | 'OTHER' | 'PREFER_NOT_TO_SAY' | null;
   date_of_birth: string | null;
   blood_group: string | null;
@@ -362,6 +510,8 @@ export interface Affiliation {
   affiliation_type: 'PRIVATE' | 'GOVERNMENT' | 'ACADEMIC' | 'STARTUP' | 'OTHER' | null;
   sector: string | null;
   designation: string | null;
+  function: string | null;
+  seniority_level: string | null;
   city: string | null;
   state: string | null;
   country: string | null;
@@ -660,4 +810,134 @@ export interface OrganisationSearchResult {
   designation: string | null;
   start_date: string | null;
   end_date: string | null;
+}
+
+export interface FilterCondition {
+  field: string;
+  operator: string;
+  value?: string | number;
+  values?: (string | number)[];
+}
+
+export interface FilterGroup {
+  op: 'and' | 'or';
+  conditions: FilterNode[];
+}
+
+export type FilterNode = FilterCondition | FilterGroup;
+
+export function isFilterGroup(node: FilterNode): node is FilterGroup {
+  return (node as FilterGroup).conditions !== undefined;
+}
+
+export interface AdvancedSearchBody {
+  q?: string;
+  roll_no?: string;
+  kind?: string;
+  status?: string;
+  organisation_q?: string;
+  stale_threshold_days?: number;
+  filter?: FilterGroup;
+  page?: number;
+  page_size?: number;
+  sort_by?: string;
+  sort_dir?: string;
+}
+
+export interface FilterFieldSpec {
+  kind: 'text' | 'numeric' | 'multi';
+  operators: string[];
+  scope: string;
+  group: 'Company' | 'Role' | 'Personal';
+}
+
+export interface Taxonomy {
+  id: string;
+  category: string;
+  value: string;
+  normalised_value: string;
+  is_active: boolean;
+  usage_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OrganisationMaster {
+  constituent_id: string;
+  legal_name: string;
+  normalised_name: string;
+  sector: string | null;
+  website_url: string | null;
+  company_type: string | null;
+  hq_city: string | null;
+  hq_state: string | null;
+  hq_country: string | null;
+}
+
+export interface Group {
+  id: string;
+  name: string;
+  description: string | null;
+  type: 'MANUAL' | 'RULE_BASED';
+  status: 'ACTIVE' | 'DEACTIVATED';
+  member_count: number;
+  pending_proposal_count: number;
+  has_pending_rule: boolean;
+  active_rule_version: number | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GroupMember {
+  constituent_id: string;
+  display_name: string;
+  added_at: string;
+  notes: string | null;
+}
+
+export interface PopulationQuery {
+  constituent_ids?: string[];
+  filter?: FilterGroup;
+  q?: string;
+  roll_no?: string;
+  organisation_q?: string;
+  stale_threshold_days?: number;
+}
+
+export interface ExportFieldInfo {
+  key: string;
+  label: string;
+  allowed: boolean;
+  requires: string[] | null;
+}
+
+export interface RuleVersion {
+  id: string;
+  group_id: string;
+  version_number: number;
+  filter_tree: FilterGroup;
+  status: 'PENDING' | 'ACTIVE' | 'SUPERSEDED' | 'REJECTED';
+  proposed_by: string | null;
+  reviewed_by: string | null;
+  decided_at: string | null;
+  created_at: string;
+}
+
+export interface Proposal {
+  id: string;
+  group_id: string;
+  rule_version_id: string;
+  rule_version_number: number;
+  constituent_id: string;
+  display_name: string;
+  action: 'ADD' | 'REMOVE';
+  reason_summary: string;
+  reason_detail: string | null;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  evaluated_by: string | null;
+  reviewed_by: string | null;
+  decided_at: string | null;
+  applied_at: string | null;
+  created_at: string;
 }

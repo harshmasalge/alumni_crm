@@ -623,9 +623,13 @@ async def test_profile_photos_lifecycle():
         )
         assert r.status_code == 403
 
-        # Cleanup.
+        # Cleanup both photos.
         r = await client.delete(
             f"/constituents/{cid}/photos/{first_id}", headers=staff_headers
+        )
+        assert r.status_code == 204
+        r = await client.delete(
+            f"/constituents/{cid}/photos/{second_id}", headers=staff_headers
         )
         assert r.status_code == 204
 

@@ -28,6 +28,7 @@ async def seed():
         permissions = [
             # Constituent permissions
             Permission(name="constituents.read", module="constituents", action="read", description="Read constituents"),
+            Permission(name="constituents.export", module="constituents", action="export", description="Generate bulk XLSX exports of people populations"),
             Permission(name="constituents.write", module="constituents", action="write", description="Create/update constituents"),
             Permission(name="constituents.delete", module="constituents", action="delete", description="Delete constituents"),
             Permission(name="constituents.read_internal", module="constituents", action="read_internal", description="Read internal notes"),
@@ -68,6 +69,14 @@ async def seed():
             Permission(name="admin.audit", module="admin", action="audit", description="View audit logs"),
             # Restricted records (admin role only via the admin-gets-all grant below)
             Permission(name="ssac.read_restricted", module="ssac", action="read_restricted", description="Read student conduct records (restricted)"),
+            # Groups permissions (M1.1 Phase B1)
+            Permission(name="groups.read", module="groups", action="read", description="Read groups and memberships"),
+            Permission(name="groups.create", module="groups", action="create", description="Create groups"),
+            Permission(name="groups.update", module="groups", action="update", description="Edit group name/description"),
+            Permission(name="groups.manage_members", module="groups", action="manage_members", description="Add/remove manual-group members"),
+            Permission(name="groups.manage_rules", module="groups", action="manage_rules", description="Propose rule changes"),
+            Permission(name="groups.approve", module="groups", action="approve", description="Approve rules and membership proposals"),
+            Permission(name="groups.deactivate", module="groups", action="deactivate", description="Deactivate/reactivate groups"),
         ]
 
         for perm in permissions:
@@ -93,7 +102,7 @@ async def seed():
         # administration (admin.users, admin.roles stay admin-only).
         # admin.audit (read-only log viewing) is intentionally included.
         staff_perms = [
-            "constituents.read", "constituents.write", "constituents.delete",
+            "constituents.read", "constituents.export", "constituents.write", "constituents.delete",
             "constituents.read_internal",
             "people.read", "people.write", "people.read_demographics",
             "people.read_health", "people.read_family",
@@ -105,6 +114,9 @@ async def seed():
             "affiliations.read", "affiliations.write",
             "files.read", "files.write",
             "admin.audit",
+            "groups.read", "groups.create", "groups.update",
+            "groups.manage_members", "groups.manage_rules",
+            "groups.approve", "groups.deactivate",
         ]
         for perm_name in staff_perms:
             session.add(RolePermission(role_id=staff_role.id, permission_id=all_perms[perm_name].id))
@@ -120,6 +132,7 @@ async def seed():
             "education.read",
             "affiliations.read",
             "files.read",
+            "groups.read",
         ]
         for perm_name in viewer_perms:
             session.add(RolePermission(role_id=viewer_role.id, permission_id=all_perms[perm_name].id))

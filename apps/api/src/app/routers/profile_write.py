@@ -285,8 +285,8 @@ async def update_person(
             full_name=payload.full_name,
         )
         db.add(person)
-    for field in ("first_name", "full_name", "gender", "date_of_birth",
-                  "blood_group", "spouse_name", "profile_photo_file_id"):
+    for field in ("first_name", "full_name", "last_name", "gender", "date_of_birth",
+                   "blood_group", "spouse_name", "profile_photo_file_id"):
         value = getattr(payload, field)
         if value is not None:
             setattr(person, field, value)

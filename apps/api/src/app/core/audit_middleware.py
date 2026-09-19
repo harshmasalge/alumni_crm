@@ -24,6 +24,28 @@ def get_audit_action(method: str, path: str) -> Optional[str]:
         return "LIST_STALE"
     if method == "GET" and path == "/api/v1/constituents/organisations/search":
         return "SEARCH_ORG"
+    if method == "POST" and path == "/api/v1/constituents/search":
+        return "SEARCH_FILTERED"
+    if method == "GET" and path == "/api/v1/constituents/search/fields":
+        return "FILTER_FIELDS"
+    if method == "GET" and path == "/api/v1/taxonomies":
+        return "TAXONOMY_LIST"
+    if method in ("POST", "PATCH", "PUT", "DELETE") and path.startswith("/api/v1/taxonomies"):
+        return "TAXONOMY_WRITE"
+    if method == "GET" and path.startswith("/api/v1/organisations/"):
+        return "ORG_READ"
+    if method in ("PATCH", "PUT") and path.startswith("/api/v1/organisations/"):
+        return "ORG_WRITE"
+    if method == "GET" and path == "/api/v1/groups":
+        return "GROUP_LIST"
+    if method == "GET" and path.startswith("/api/v1/groups/"):
+        return "GROUP_READ"
+    if method in ("POST", "PATCH", "PUT", "DELETE") and path.startswith("/api/v1/groups"):
+        return "GROUP_WRITE"
+    if method == "GET" and path.startswith("/api/v1/exports"):
+        return "EXPORT_FIELDS"
+    if method == "POST" and path.startswith("/api/v1/exports"):
+        return "EXPORT"
     if method == "GET" and path.startswith("/api/v1/constituents/") and path.endswith("/profile"):
         return "READ_PROFILE"
     if method in ("POST", "PATCH", "PUT", "DELETE") and path.startswith("/api/v1/constituents"):
@@ -34,6 +56,14 @@ def get_audit_action(method: str, path: str) -> Optional[str]:
 def get_entity_type(path: str) -> Optional[str]:
     if path.startswith("/api/v1/constituents"):
         return "constituent"
+    if path.startswith("/api/v1/taxonomies"):
+        return "taxonomy"
+    if path.startswith("/api/v1/organisations"):
+        return "organisation"
+    if path.startswith("/api/v1/groups"):
+        return "group"
+    if path.startswith("/api/v1/exports"):
+        return "export"
     return None
 
 

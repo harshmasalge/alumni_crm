@@ -86,6 +86,7 @@ async def seed():
 
             full_name = clean_str(row.get(" Full Name")) or clean_str(row.get("First Name")) or roll_no
             first_name = clean_str(row.get("First Name")) or full_name.split()[0]
+            last_name = clean_str(row.get("Last Name"))
             display_name = full_name
 
             # Create constituent
@@ -115,6 +116,7 @@ async def seed():
                 constituent_id=constituent.id,
                 first_name=first_name,
                 full_name=full_name,
+                last_name=last_name,
                 gender=gender,
                 date_of_birth=birthday,
                 blood_group=clean_str(row.get("Blood Group")),

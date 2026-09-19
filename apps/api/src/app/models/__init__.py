@@ -11,6 +11,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    JSON,
     Numeric,
     SmallInteger,
     String,
@@ -165,6 +166,7 @@ class Person(Base):
     constituent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("constituents.id", ondelete="CASCADE"), primary_key=True)
     first_name: Mapped[str] = mapped_column(String(100), nullable=False)
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    last_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     gender: Mapped[Optional[Gender]] = mapped_column(Enum(Gender), nullable=True)
     date_of_birth: Mapped[Optional[datetime]] = mapped_column(Date, nullable=True)
     blood_group: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
@@ -182,6 +184,10 @@ class Organisation(Base):
     normalised_name: Mapped[str] = mapped_column(String(255), nullable=False)
     sector: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     website_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    company_type: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    hq_city: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    hq_state: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    hq_country: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
 
     constituent: Mapped["Constituent"] = relationship(back_populates="organisation")
 
@@ -274,6 +280,8 @@ class Affiliation(Base):
     affiliation_type: Mapped[Optional[AffiliationType]] = mapped_column(Enum(AffiliationType), nullable=True)
     sector: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     designation: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    function: Mapped[Optional[str]] = mapped_column("function", String(100), nullable=True)
+    seniority_level: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     city: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     state: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     country: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
@@ -782,6 +790,163 @@ class FamilyMember(Base):
 
     __table_args__ = (
         Index("ix_family_members_constituent", "constituent_id"),
+    )
+
+
+class GroupType(str, enum.Enum):
+    MANUAL = "MANUAL"
+    RULE_BASED = "RULE_BASED"
+
+
+class GroupStatus(str, enum.Enum):
+    ACTIVE = "ACTIVE"
+    DEACTIVATED = "DEACTIVATED"
+
+
+class RuleVersionStatus(str, enum.Enum):
+    PENDING = "PENDING"
+    ACTIVE = "ACTIVE"
+    SUPERSEDED = "SUPERSEDED"
+    REJECTED = "REJECTED"
+
+
+class ProposalAction(str, enum.Enum):
+    ADD = "ADD"
+    REMOVE = "REMOVE"
+
+
+class ProposalStatus(str, enum.Enum):
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+
+
+class Group(Base):
+    """M1.1 Phase B1 — managed CRM population.
+
+    Lifecycle is activation/deactivation only (no hard delete). Attention
+    states (pending rule, pending proposals) are derived from child rows,
+    not stored here. See ADR-006.
+    """
+
+    __tablename__ = "groups"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    type: Mapped[GroupType] = mapped_column(Enum(GroupType), nullable=False)
+    status: Mapped[GroupStatus] = mapped_column(Enum(GroupStatus), nullable=False, default=GroupStatus.ACTIVE)
+    created_by: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+    memberships: Mapped[list["GroupMembership"]] = relationship(back_populates="group", cascade="all, delete-orphan")
+    rule_versions: Mapped[list["GroupRuleVersion"]] = relationship(back_populates="group", cascade="all, delete-orphan")
+    proposals: Mapped[list["GroupMembershipProposal"]] = relationship(back_populates="group", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        Index("ix_groups_type_status", "type", "status"),
+    )
+
+
+class GroupMembership(Base):
+    """Current-state membership. One row = member; removal deletes the row
+    (audited). UNIQUE(group_id, constituent_id) makes adds idempotent."""
+
+    __tablename__ = "group_memberships"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    group_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("groups.id", ondelete="CASCADE"), nullable=False)
+    constituent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("constituents.id", ondelete="CASCADE"), nullable=False)
+    added_by: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), nullable=True)
+    added_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    group: Mapped["Group"] = relationship(back_populates="memberships")
+
+    __table_args__ = (
+        UniqueConstraint("group_id", "constituent_id", name="uq_group_membership"),
+        Index("ix_group_memberships_group", "group_id"),
+        Index("ix_group_memberships_constituent", "constituent_id"),
+    )
+
+
+class GroupRuleVersion(Base):
+    """Append-only rule snapshots. Never mutated after decision — approval
+    flips statuses and appends, preserving history for later evaluation."""
+
+    __tablename__ = "group_rule_versions"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    group_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("groups.id", ondelete="CASCADE"), nullable=False)
+    version_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    filter_tree: Mapped[dict] = mapped_column(JSON, nullable=False)
+    status: Mapped[RuleVersionStatus] = mapped_column(Enum(RuleVersionStatus), nullable=False, default=RuleVersionStatus.PENDING)
+    proposed_by: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), nullable=True)
+    reviewed_by: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), nullable=True)
+    decided_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    group: Mapped["Group"] = relationship(back_populates="rule_versions")
+
+    __table_args__ = (
+        UniqueConstraint("group_id", "version_number", name="uq_group_rule_version"),
+        Index("ix_group_rule_versions_group", "group_id"),
+    )
+
+
+class GroupMembershipProposal(Base):
+    """Governed delta bound to the evaluated rule version, with stored
+    reason snapshots so reviewers never depend on mutable current data.
+    Approval is valid only while the bound version is still ACTIVE."""
+
+    __tablename__ = "group_membership_proposals"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    group_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("groups.id", ondelete="CASCADE"), nullable=False)
+    rule_version_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("group_rule_versions.id", ondelete="CASCADE"), nullable=False)
+    constituent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("constituents.id", ondelete="CASCADE"), nullable=False)
+    action: Mapped[ProposalAction] = mapped_column(Enum(ProposalAction), nullable=False)
+    reason_summary: Mapped[str] = mapped_column(Text, nullable=False)
+    reason_detail: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    status: Mapped[ProposalStatus] = mapped_column(Enum(ProposalStatus), nullable=False, default=ProposalStatus.PENDING)
+    evaluated_by: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), nullable=True)
+    reviewed_by: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), nullable=True)
+    decided_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    applied_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    group: Mapped["Group"] = relationship(back_populates="proposals")
+
+    __table_args__ = (
+        Index("ix_group_proposals_group_status", "group_id", "status"),
+        Index("ix_group_proposals_version", "rule_version_id"),
+    )
+
+
+class Taxonomy(Base):
+    """M1.1 — staff-managed categorical vocabulary for segmentation.
+
+    One generic table serves every controlled list (industry, company_type,
+    function, seniority_level, ...). Values are advisory, never FK-enforced,
+    so taxonomy edits cannot invalidate existing constituent rows.
+    Destructive deletion is blocked while a value is referenced; staff
+    deactivate (is_active=False) instead. See ADR-005.
+    """
+
+    __tablename__ = "taxonomies"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    category: Mapped[str] = mapped_column(String(50), nullable=False)
+    value: Mapped[str] = mapped_column(String(255), nullable=False)
+    normalised_value: Mapped[str] = mapped_column(String(255), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("category", "normalised_value", name="uq_taxonomy_category_value"),
+        Index("ix_taxonomies_category", "category"),
+        Index("ix_taxonomies_category_active", "category", "is_active"),
     )
 
 

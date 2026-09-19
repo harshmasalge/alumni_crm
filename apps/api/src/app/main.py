@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.audit_middleware import AuditMiddleware
 from app.core.config import settings
 from app.db.session import close_db, init_db
-from app.routers import admin, auth, constituents, health, profile_write
+from app.routers import admin, auth, constituents, exports, groups, health, organisations, profile_write, segmentation, taxonomies
 
 
 @asynccontextmanager
@@ -40,6 +40,31 @@ app.include_router(
     profile_write.router,
     prefix=f"{settings.api_prefix}/constituents",
     tags=["constituents"],
+)
+app.include_router(
+    segmentation.router,
+    prefix=f"{settings.api_prefix}/constituents",
+    tags=["constituents"],
+)
+app.include_router(
+    taxonomies.router,
+    prefix=f"{settings.api_prefix}/taxonomies",
+    tags=["taxonomies"],
+)
+app.include_router(
+    organisations.router,
+    prefix=f"{settings.api_prefix}/organisations",
+    tags=["organisations"],
+)
+app.include_router(
+    groups.router,
+    prefix=f"{settings.api_prefix}/groups",
+    tags=["groups"],
+)
+app.include_router(
+    exports.router,
+    prefix=f"{settings.api_prefix}/exports",
+    tags=["exports"],
 )
 app.include_router(admin.router, prefix=f"{settings.api_prefix}/admin", tags=["admin"])
 

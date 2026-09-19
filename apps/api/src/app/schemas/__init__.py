@@ -47,6 +47,7 @@ class ConstituentResponse(ConstituentBase):
 class PersonBase(BaseModel):
     first_name: str
     full_name: str
+    last_name: Optional[str] = None
     gender: Optional[str] = None
     date_of_birth: Optional[date] = None
     blood_group: Optional[str] = None
@@ -61,6 +62,7 @@ class PersonCreate(PersonBase):
 class PersonUpdate(BaseModel):
     first_name: Optional[str] = None
     full_name: Optional[str] = None
+    last_name: Optional[str] = None
     gender: Optional[str] = None
     date_of_birth: Optional[date] = None
     blood_group: Optional[str] = None
@@ -79,6 +81,10 @@ class OrganisationBase(BaseModel):
     normalised_name: str
     sector: Optional[str] = None
     website_url: Optional[str] = None
+    company_type: Optional[str] = None
+    hq_city: Optional[str] = None
+    hq_state: Optional[str] = None
+    hq_country: Optional[str] = None
 
 
 class OrganisationCreate(OrganisationBase):
@@ -90,6 +96,10 @@ class OrganisationUpdate(BaseModel):
     normalised_name: Optional[str] = None
     sector: Optional[str] = None
     website_url: Optional[str] = None
+    company_type: Optional[str] = None
+    hq_city: Optional[str] = None
+    hq_state: Optional[str] = None
+    hq_country: Optional[str] = None
 
 
 class OrganisationResponse(OrganisationBase):
@@ -213,6 +223,8 @@ class AffiliationBase(BaseModel):
     affiliation_type: Optional[str] = None
     sector: Optional[str] = None
     designation: Optional[str] = None
+    function: Optional[str] = None
+    seniority_level: Optional[str] = None
     city: Optional[str] = None
     state: Optional[str] = None
     country: Optional[str] = None
@@ -234,6 +246,8 @@ class AffiliationUpdate(BaseModel):
     affiliation_type: Optional[str] = None
     sector: Optional[str] = None
     designation: Optional[str] = None
+    function: Optional[str] = None
+    seniority_level: Optional[str] = None
     city: Optional[str] = None
     state: Optional[str] = None
     country: Optional[str] = None
@@ -813,3 +827,425 @@ class AdminAuditListResponse(BaseModel):
     page: int
     page_size: int
     total_pages: int
+
+
+# ---------------------------------------------------------------------------
+# M1.1 Phase A — people segmentation: generic filter DSL + staff taxonomies.
+#
+# The frontend is presentation only: it builds this filter tree, the backend
+# validates and evaluates it. Field/operator support is whitelisted in
+# FILTER_FIELD_REGISTRY (single source of truth, also served to the UI via
+# GET /constituents/search/fields). Saved-search persistence and Groups
+# arrive in Phase B; the tree shape is already reusable for both.
+# ---------------------------------------------------------------------------
+
+TEXT_OPERATORS = (
+    "equals",
+    "not_equals",
+    "contains",
+    "starts_with",
+    "is_any_of",
+    "is_none_of",
+    "is_empty",
+    "is_not_empty",
+)
+
+NUMERIC_OPERATORS = (
+    "gt",
+    "gte",
+    "lt",
+    "lte",
+    "between",
+    "is_empty",
+    "is_not_empty",
+)
+
+MULTI_OPERATORS = (
+    "is_any_of",
+    "is_all_of",
+    "is_none_of",
+    "is_empty",
+    "is_not_empty",
+)
+
+# field -> query semantics. "scope" documents which records a match is
+# evaluated against; every leaf compiles to an EXISTS subquery (or a direct
+# predicate for person-level fields) so history is never flattened.
+FILTER_FIELD_REGISTRY: dict[str, dict] = {
+    "current_company": {
+        "kind": "text",
+        "operators": list(TEXT_OPERATORS),
+        "scope": "current affiliations: resolved legal name or raw employer text",
+        "group": "Company",
+    },
+    "past_company": {
+        "kind": "text",
+        "operators": list(TEXT_OPERATORS),
+        "scope": "past affiliations: resolved legal name or raw employer text",
+        "group": "Company",
+    },
+    "company_type": {
+        "kind": "multi",
+        "operators": list(MULTI_OPERATORS),
+        "scope": "any affiliation: affiliation_type or resolved organisation company_type",
+        "group": "Company",
+    },
+    "company_hq": {
+        "kind": "text",
+        "operators": list(TEXT_OPERATORS),
+        "scope": "any affiliation city/state/country or resolved organisation HQ location",
+        "group": "Company",
+    },
+    "function": {
+        "kind": "multi",
+        "operators": list(MULTI_OPERATORS),
+        "scope": "any affiliation function (staff-maintained vocabulary)",
+        "group": "Role",
+    },
+    "current_job_title": {
+        "kind": "text",
+        "operators": list(TEXT_OPERATORS),
+        "scope": "current affiliation designation",
+        "group": "Role",
+    },
+    "seniority_level": {
+        "kind": "multi",
+        "operators": list(MULTI_OPERATORS),
+        "scope": "any affiliation seniority_level (staff-maintained vocabulary)",
+        "group": "Role",
+    },
+    "past_job_title": {
+        "kind": "text",
+        "operators": list(TEXT_OPERATORS),
+        "scope": "past affiliation designations",
+        "group": "Role",
+    },
+    "years_in_current_company": {
+        "kind": "numeric",
+        "operators": list(NUMERIC_OPERATORS),
+        "scope": "years since current affiliation start_date (NULL start dates never match)",
+        "group": "Role",
+    },
+    "years_in_current_position": {
+        "kind": "numeric",
+        "operators": list(NUMERIC_OPERATORS),
+        "scope": "years since current affiliation start_date; equals company tenure until a position-history model lands (ADR-005)",
+        "group": "Role",
+    },
+    "geography": {
+        "kind": "text",
+        "operators": list(TEXT_OPERATORS),
+        "scope": "current affiliation city/state/country or current address city/state/country",
+        "group": "Personal",
+    },
+    "industry": {
+        "kind": "multi",
+        "operators": list(MULTI_OPERATORS),
+        "scope": "any affiliation sector (staff-maintained industry vocabulary)",
+        "group": "Personal",
+    },
+    "first_name": {
+        "kind": "text",
+        "operators": list(TEXT_OPERATORS),
+        "scope": "person first_name",
+        "group": "Personal",
+    },
+    "last_name": {
+        "kind": "text",
+        "operators": list(TEXT_OPERATORS),
+        "scope": "person last_name",
+        "group": "Personal",
+    },
+    "years_of_experience": {
+        "kind": "numeric",
+        "operators": list(NUMERIC_OPERATORS),
+        "scope": "years since earliest affiliation start_date (derived, never stored)",
+        "group": "Personal",
+    },
+    "school": {
+        "kind": "text",
+        "operators": list(TEXT_OPERATORS),
+        "scope": "education_records institution_name across all stages",
+        "group": "Personal",
+    },
+}
+
+# Phase B reserved: accepted by the registry contract but rejected with a
+# clear 400 until governed Groups land. Never silently ignored.
+RESERVED_PHASE_B_FIELDS = ("groups",)
+
+
+class FilterCondition(BaseModel):
+    field: str
+    operator: str
+    value: Optional[str | float | int] = None
+    values: Optional[List[str | float | int]] = None
+
+
+class FilterGroup(BaseModel):
+    op: str = Field(default="and", description="and | or")
+    conditions: List["FilterNode"] = Field(default_factory=list)
+
+
+FilterNode = FilterCondition | FilterGroup
+FilterGroup.model_rebuild()
+
+
+class AdvancedSearchRequest(BaseModel):
+    q: Optional[str] = Field(None, description="Partial-name search (M1 semantics preserved)")
+    roll_no: Optional[str] = Field(None, description="Exact Roll Number (M1 semantics preserved)")
+    kind: Optional[str] = None
+    status: Optional[str] = None
+    organisation_q: Optional[str] = Field(
+        None, description="Organisation substring across current+past affiliations (M1 semantics preserved)"
+    )
+    stale_threshold_days: Optional[int] = Field(
+        None, ge=1, description="When set, intersect with the M1 stale-profile definition"
+    )
+    filter: Optional[FilterGroup] = Field(None, description="Nested AND/OR filter tree")
+    page: int = Field(default=1, ge=1)
+    page_size: int = Field(default=20, ge=1, le=100)
+    sort_by: str = Field(default="display_name", description="display_name | year_of_graduation")
+    sort_dir: str = Field(default="asc", description="asc | desc")
+
+
+class AdvancedSearchResponse(BaseModel):
+    items: List[ConstituentResponse]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
+class TaxonomyResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    category: str
+    value: str
+    normalised_value: str
+    is_active: bool
+    usage_count: int = 0
+    created_at: datetime
+    updated_at: datetime
+
+
+class TaxonomyCreate(BaseModel):
+    category: str = Field(..., min_length=1, max_length=50)
+    value: str = Field(..., min_length=1, max_length=255)
+
+
+class TaxonomyUpdate(BaseModel):
+    value: Optional[str] = Field(None, min_length=1, max_length=255)
+    is_active: Optional[bool] = None
+
+
+class TaxonomyListResponse(BaseModel):
+    items: List[TaxonomyResponse]
+    total: int
+
+
+# ---------------------------------------------------------------------------
+# M1.1 Phase B1 — groups domain contracts.
+#
+# Two population semantics (never mixed): explicit constituent-ID lists vs
+# server-side filter definitions re-evaluated at execution time. "Select all
+# on page" is just explicit IDs; there is no page-population type.
+# ---------------------------------------------------------------------------
+
+class GroupCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    description: Optional[str] = None
+    type: str = Field(..., description="MANUAL | RULE_BASED")
+    initial_rule: Optional[FilterGroup] = Field(
+        None, description="Rule-based only: stored as PENDING v1, never active on creation"
+    )
+
+
+class GroupUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=255)
+    description: Optional[str] = None
+
+
+class GroupResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    name: str
+    description: Optional[str] = None
+    type: str
+    status: str
+    member_count: int = 0
+    pending_proposal_count: int = 0
+    has_pending_rule: bool = False
+    active_rule_version: Optional[int] = None
+    created_by: Optional[UUID] = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class GroupListResponse(BaseModel):
+    items: List[GroupResponse]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
+class MemberAddRequest(BaseModel):
+    constituent_ids: List[UUID] = Field(..., min_length=1, max_length=500)
+
+
+class MemberAddResponse(BaseModel):
+    added: List[UUID] = []
+    already_members: List[UUID] = []
+    invalid: List[UUID] = []
+
+
+class GroupMemberResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    constituent_id: UUID
+    display_name: str
+    added_at: datetime
+    # Restricted constituent fields are withheld/masked via
+    # FieldPermissionChecker; membership never leaks them.
+    notes: Optional[str] = None
+
+
+class GroupMemberListResponse(BaseModel):
+    items: List[GroupMemberResponse]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
+class PopulationPreviewRequest(BaseModel):
+    constituent_ids: Optional[List[UUID]] = Field(None, max_length=2000)
+    filter: Optional[FilterGroup] = None
+    # M1 People-search criteria: combined server-side with the filter tree as
+    # one intersection (same semantics as POST /constituents/search), so a
+    # transferred population always equals the visible People population.
+    q: Optional[str] = None
+    roll_no: Optional[str] = None
+    organisation_q: Optional[str] = None
+    stale_threshold_days: Optional[int] = Field(None, ge=1)
+
+
+class PopulationPreviewResponse(BaseModel):
+    matched: int
+    already_members: int
+    would_add: int
+    invalid: List[UUID] = []
+
+
+class MaterializeResponse(BaseModel):
+    matched: int
+    added: List[UUID] = []
+    already_members: int = 0
+    invalid: List[UUID] = []
+
+
+class RuleProposeRequest(BaseModel):
+    filter: FilterGroup
+
+
+class RuleVersionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    group_id: UUID
+    version_number: int
+    filter_tree: dict
+    status: str
+    proposed_by: Optional[UUID] = None
+    reviewed_by: Optional[UUID] = None
+    decided_at: Optional[datetime] = None
+    created_at: datetime
+
+
+class RuleApprovalResponse(BaseModel):
+    rule: RuleVersionResponse
+    evaluation: Optional["EvaluationSummary"] = None
+
+
+class EvaluationSummary(BaseModel):
+    version_number: int
+    matched: int
+    additions: int
+    removals: int
+    skipped_existing_pending: int = 0
+
+
+class ProposalResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    group_id: UUID
+    rule_version_id: UUID
+    rule_version_number: int = 0
+    constituent_id: UUID
+    display_name: str = ""
+    action: str
+    reason_summary: str
+    reason_detail: Optional[str] = None
+    status: str
+    evaluated_by: Optional[UUID] = None
+    reviewed_by: Optional[UUID] = None
+    decided_at: Optional[datetime] = None
+    applied_at: Optional[datetime] = None
+    created_at: datetime
+
+
+class ProposalListResponse(BaseModel):
+    items: List[ProposalResponse]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
+class ProposalDecisionRequest(BaseModel):
+    proposal_ids: List[UUID] = Field(..., min_length=1, max_length=500)
+
+
+class ProposalDecisionResponse(BaseModel):
+    approved_or_rejected: List[UUID] = []
+    stale: List[UUID] = []
+    already_decided: List[UUID] = []
+
+
+# ---------------------------------------------------------------------------
+# M1.1 Phase C — permission-aware export contracts.
+#
+# Populations mirror the Groups handoff semantics: explicit IDs | M1 search
+# criteria + filter tree (re-evaluated) | group members. The frontend never
+# supplies row data or the population itself.
+# ---------------------------------------------------------------------------
+
+class ExportPeopleRequest(BaseModel):
+    constituent_ids: Optional[List[UUID]] = Field(None, max_length=5000)
+    filter: Optional[FilterGroup] = None
+    q: Optional[str] = None
+    roll_no: Optional[str] = None
+    organisation_q: Optional[str] = None
+    stale_threshold_days: Optional[int] = Field(None, ge=1)
+    group_id: Optional[UUID] = None
+    fields: Optional[List[str]] = Field(
+        None, description="Export column keys; omitted means all columns the caller may see"
+    )
+
+
+class ExportFieldInfo(BaseModel):
+    key: str
+    label: str
+    allowed: bool
+    requires: Optional[List[str]] = None
+
+
+class ExportFieldCatalogResponse(BaseModel):
+    items: List[ExportFieldInfo]
+
+
+RuleApprovalResponse.model_rebuild()

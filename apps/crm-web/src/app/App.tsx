@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import type { ReactNode } from "react";
-import { api, getToken, setToken, ApiError, AuthUser, Constituent, Profile360, Person, AlumniProfile, EducationRecord, Affiliation, ContactMethod, Address, OrganisationSearchResult } from "../api";
+import { api, getToken, setToken, ApiError, AuthUser, Constituent, Profile360, Person, AlumniProfile, EducationRecord, Affiliation, ContactMethod, Address, OrganisationSearchResult, FilterCondition, FilterFieldSpec, FilterGroup, FilterNode, isFilterGroup } from "../api";
 import { FundraisingPreview } from "../preview/Fundraising";
 import { ImportsPreview, ReportsPreview } from "../preview/ImportsReports";
 import { EngagementPreview } from "../preview/Engagement";
@@ -8,6 +8,8 @@ import { CommunicationsPreview } from "../preview/Communications";
 import { IntegrationsPreview } from "../preview/IntegrationsAdmin";
 import { Admin } from "./Admin";
 import { AuthPanel } from "./AuthPanel";
+import { Groups, AddToGroupDialog, GroupSelection } from "./Groups";
+import { ExportDialog, ExportPopulation, canExport } from "./Export";
 
 type ModuleState = "Live" | "Preview" | "Under development";
 
@@ -20,6 +22,7 @@ type NavItem = {
 const navigation: NavItem[] = [
   { label: "Overview", state: "Live", description: "M0 product preview and delivery progress." },
   { label: "People", state: "Live", description: "Alumni and donor registry — connected to PostgreSQL backend." },
+  { label: "Groups", state: "Live", description: "Managed alumni populations — Manual groups live; rule workflows arrive in B3." },
   { label: "Fundraising", state: "Preview", description: "Donation ledger and sample receipts arrive in M2." },
   { label: "Engagement", state: "Under development", description: "Events, attendance, chapters, and work queues arrive in M4." },
   { label: "Communications", state: "Under development", description: "Consent-aware campaigns and automation arrive in M6." },
@@ -33,11 +36,12 @@ export function StatusBadge({ state }: { state: ModuleState }) {
   return <span className={`status status--${state.toLowerCase().replaceAll(" ", "-")}`}>{state}</span>;
 }
 
-type Route = { view: string; profileId?: string; stale?: boolean };
+type Route = { view: string; profileId?: string; groupId?: string; stale?: boolean };
 
 const viewSlugs: Record<string, string> = {
   Overview: "",
   People: "people",
+  Groups: "groups",
   Fundraising: "fundraising",
   Engagement: "engagement",
   Communications: "communications",
@@ -59,6 +63,13 @@ function parseHash(): Route {
   if (path === "people") {
     return { view: "People", stale: params.get("stale") === "1" };
   }
+  if (path.startsWith("groups/")) {
+    const id = path.slice("groups/".length);
+    return { view: "Groups", groupId: id || undefined };
+  }
+  if (path === "groups") {
+    return { view: "Groups" };
+  }
   const view = Object.keys(viewSlugs).find((label) => viewSlugs[label] === path);
   return { view: view ?? "Overview" };
 }
@@ -66,6 +77,8 @@ function parseHash(): Route {
 function hashFor(route: Route): string {
   if (route.view === "People" && route.profileId) return `#/people/${route.profileId}`;
   if (route.view === "People") return route.stale ? "#/people?stale=1" : "#/people";
+  if (route.view === "Groups" && route.groupId) return `#/groups/${route.groupId}`;
+  if (route.view === "Groups") return "#/groups";
   const slug = viewSlugs[route.view] ?? "";
   return slug ? `#/${slug}` : "#/";
 }
@@ -181,7 +194,7 @@ export function App() {
         </header>
 
         <section className="content" aria-live="polite">
-          {active.label === "Overview" ? <Overview onShowStale={goToStalePeople} /> : active.label === "People" ? <People staleSignal={peopleStaleSignal} profileId={route.view === "People" ? route.profileId : undefined} onOpenProfile={(id) => navigate({ view: "People", profileId: id })} onAuthChange={checkAuth} user={user} /> : active.label === "Fundraising" ? <FundraisingPreview /> : active.label === "Reports" ? <ReportsPreview /> : active.label === "Imports" ? <ImportsPreview /> : active.label === "Engagement" ? <EngagementPreview /> : active.label === "Communications" ? <CommunicationsPreview /> : active.label === "Integrations" ? <IntegrationsPreview /> : active.label === "Administration" ? <Admin user={user} /> : <ModulePreview module={active} />}
+          {active.label === "Overview" ? <Overview onShowStale={goToStalePeople} /> : active.label === "People" ? <People staleSignal={peopleStaleSignal} profileId={route.view === "People" ? route.profileId : undefined} onOpenProfile={(id) => navigate({ view: "People", profileId: id })} onAuthChange={checkAuth} user={user} /> : active.label === "Groups" ? <Groups groupId={route.view === "Groups" ? route.groupId : undefined} onOpenGroup={(id) => navigate({ view: "Groups", groupId: id })} onOpenProfile={(id) => navigate({ view: "People", profileId: id })} user={user} /> : active.label === "Fundraising" ? <FundraisingPreview /> : active.label === "Reports" ? <ReportsPreview /> : active.label === "Imports" ? <ImportsPreview /> : active.label === "Engagement" ? <EngagementPreview /> : active.label === "Communications" ? <CommunicationsPreview /> : active.label === "Integrations" ? <IntegrationsPreview /> : active.label === "Administration" ? <Admin user={user} /> : <ModulePreview module={active} />}
         </section>
       </main>
     </div>
@@ -237,6 +250,436 @@ function Overview({ onShowStale }: { onShowStale: () => void }) {
   );
 }
 
+/* ------------------------------------------------------------------ */
+/* M1.1 Phase A — advanced segmentation UI (presentation only). The      */
+/* backend filter registry (GET /constituents/search/fields) is the     */
+/* single source of truth; this panel only builds the filter tree.      */
+/* ------------------------------------------------------------------ */
+
+const OPERATOR_LABELS: Record<string, string> = {
+  equals: "is",
+  not_equals: "is not",
+  contains: "contains",
+  starts_with: "starts with",
+  is_any_of: "is any of",
+  is_none_of: "is none of",
+  is_all_of: "is all of",
+  gt: ">",
+  gte: "≥",
+  lt: "<",
+  lte: "≤",
+  between: "between",
+  is_empty: "is empty",
+  is_not_empty: "is not empty",
+};
+
+const SINGLE_VALUE_OPS = new Set(["equals", "not_equals", "contains", "starts_with", "gt", "gte", "lt", "lte"]);
+const LIST_VALUE_OPS = new Set(["is_any_of", "is_none_of", "is_all_of", "between"]);
+
+function defaultCondition(field: string, registry: Record<string, FilterFieldSpec>): FilterCondition {
+  const spec = registry[field];
+  const operator = spec?.operators[0] ?? "equals";
+  return { field, operator };
+}
+
+export function describeCondition(c: FilterCondition): string {
+  const label = OPERATOR_LABELS[c.operator] ?? c.operator;
+  if (c.values && c.values.length > 0) return `${c.field} ${label} ${c.values.join(", ")}`;
+  if (c.value !== undefined && c.value !== "") return `${c.field} ${label} ${c.value}`;
+  return `${c.field} ${label}`;
+}
+
+function updateNodeAtPath(tree: FilterGroup, path: number[], next: FilterNode): FilterGroup {
+  if (path.length === 0) return next as FilterGroup;
+  const [head, ...rest] = path;
+  const conditions = tree.conditions.map((c, i) => {
+    if (i !== head) return c;
+    if (rest.length === 0) return next;
+    if (isFilterGroup(c)) return updateNodeAtPath(c, rest, next);
+    return c;
+  });
+  return { ...tree, conditions };
+}
+
+function removeNodeAtPath(tree: FilterGroup, path: number[]): FilterGroup {
+  const [head, ...rest] = path;
+  const conditions = tree.conditions.flatMap((c, i) => {
+    if (i !== head) return [c];
+    if (rest.length === 0) return [];
+    if (isFilterGroup(c)) return [removeNodeAtPath(c, rest)];
+    return [c];
+  });
+  return { ...tree, conditions };
+}
+
+export function countLeaves(node: FilterNode): number {
+  if (isFilterGroup(node)) return node.conditions.reduce((n, c) => n + countLeaves(c), 0);
+  return 1;
+}
+
+function MultiValueEditor({ values, suggestions, onChange }: {
+  values: (string | number)[];
+  suggestions: string[];
+  onChange: (values: (string | number)[]) => void;
+}) {
+  const [draft, setDraft] = useState("");
+  const listId = useState(() => `sugg-${Math.random().toString(36).slice(2)}`)[0];
+  const add = () => {
+    const v = draft.trim();
+    if (!v || values.map(String).includes(v)) { setDraft(""); return; }
+    onChange([...values, v]);
+    setDraft("");
+  };
+  return (
+    <span style={{ display: "inline-flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+      {values.map((v) => (
+        <span key={String(v)} style={{ display: "inline-flex", gap: 4, alignItems: "center", background: "#eef1f0", borderRadius: 12, padding: "2px 4px 2px 10px", fontSize: 13 }}>
+          {String(v)}
+          <button type="button" className="quiet-button" aria-label={`Remove ${v}`} style={{ padding: "0 6px" }}
+            onClick={() => onChange(values.filter((x) => x !== v))}>×</button>
+        </span>
+      ))}
+      <input type="text" value={draft} list={listId} placeholder="Add value…"
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
+        style={{ width: 130, padding: "6px 10px", fontSize: 13, border: "1px solid #cfd4d2", borderRadius: 4 }} />
+      <datalist id={listId}>{suggestions.map((s) => <option key={s} value={s} />)}</datalist>
+      <button type="button" className="quiet-button" onClick={add}>Add</button>
+    </span>
+  );
+}
+
+function ConditionRow({ node, registry, suggestions, onChange, onRemove }: {
+  node: FilterCondition;
+  registry: Record<string, FilterFieldSpec>;
+  suggestions: Record<string, string[]>;
+  onChange: (next: FilterCondition) => void;
+  onRemove: () => void;
+}) {
+  const spec = registry[node.field];
+  const groups: Array<"Company" | "Role" | "Personal"> = ["Company", "Role", "Personal"];
+  const setField = (field: string) => onChange({ ...defaultCondition(field, registry) });
+  const setOperator = (operator: string) => onChange({ field: node.field, operator });
+  const kind = spec?.kind;
+  return (
+    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", padding: "6px 0" }}>
+      <select value={node.field} onChange={(e) => setField(e.target.value)} aria-label="Filter field"
+        style={{ padding: "6px 10px", fontSize: 13, border: "1px solid #cfd4d2", borderRadius: 4, maxWidth: 220 }}>
+        {groups.map((g) => (
+          <optgroup key={g} label={g}>
+            {Object.entries(registry).filter(([, s]) => s.group === g).map(([name]) => (
+              <option key={name} value={name}>{name.replaceAll("_", " ")}</option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
+      <select value={node.operator} onChange={(e) => setOperator(e.target.value)} aria-label="Operator"
+        style={{ padding: "6px 10px", fontSize: 13, border: "1px solid #cfd4d2", borderRadius: 4 }}>
+        {(spec?.operators ?? []).map((op) => <option key={op} value={op}>{OPERATOR_LABELS[op] ?? op}</option>)}
+      </select>
+      {SINGLE_VALUE_OPS.has(node.operator) && (
+        <input type={kind === "numeric" ? "number" : "text"} value={node.value ?? ""}
+          onChange={(e) => onChange({ ...node, value: kind === "numeric" ? (e.target.value === "" ? undefined : Number(e.target.value)) : e.target.value })}
+          placeholder={kind === "numeric" ? "Years…" : "Value…"} aria-label="Filter value"
+          style={{ width: kind === "numeric" ? 100 : 170, padding: "6px 10px", fontSize: 13, border: "1px solid #cfd4d2", borderRadius: 4 }} />
+      )}
+      {LIST_VALUE_OPS.has(node.operator) && node.operator !== "between" && (
+        <MultiValueEditor values={node.values ?? []} suggestions={suggestions[node.field] ?? []}
+          onChange={(values) => onChange({ ...node, values })} />
+      )}
+      {node.operator === "between" && (
+        <span style={{ display: "inline-flex", gap: 6, alignItems: "center", fontSize: 13, color: "#4f5c62" }}>
+          <input type="number" value={node.values?.[0] ?? ""} aria-label="Between low"
+            onChange={(e) => onChange({ ...node, values: [e.target.value === "" ? "" : Number(e.target.value), node.values?.[1] ?? ""] })}
+            style={{ width: 80, padding: "6px 10px", fontSize: 13, border: "1px solid #cfd4d2", borderRadius: 4 }} />
+          and
+          <input type="number" value={node.values?.[1] ?? ""} aria-label="Between high"
+            onChange={(e) => onChange({ ...node, values: [node.values?.[0] ?? "", e.target.value === "" ? "" : Number(e.target.value)] })}
+            style={{ width: 80, padding: "6px 10px", fontSize: 13, border: "1px solid #cfd4d2", borderRadius: 4 }} />
+          years
+        </span>
+      )}
+      <button type="button" className="quiet-button" aria-label="Remove filter" onClick={onRemove}>Remove</button>
+    </div>
+  );
+}
+
+/* Single shared AND/OR toggle so the selected logic is highlighted
+   identically everywhere (sidebar top + every nested group). */
+function AndOrToggle({ value, label, onPick }: {
+  value: "and" | "or";
+  label: string;
+  onPick: (op: "and" | "or") => void;
+}) {
+  return (
+    <span style={{ display: "inline-flex", gap: 8, alignItems: "center" }}>
+      <span>Match</span>
+      <span className="segmented" role="group" aria-label={label}>
+        {(["and", "or"] as const).map((op) => (
+          <button key={op} type="button" aria-pressed={value === op}
+            className={`segmented__tab${value === op ? " segmented__tab--active" : ""}`}
+            onClick={() => onPick(op)}>
+            {op === "and" ? "all (AND)" : "any (OR)"}
+          </button>
+        ))}
+      </span>
+    </span>
+  );
+}
+
+function GroupEditor({ group, registry, suggestions, depth, onChange }: {
+  group: FilterGroup;
+  registry: Record<string, FilterFieldSpec>;
+  suggestions: Record<string, string[]>;
+  depth: number;
+  onChange: (next: FilterGroup) => void;
+}) {
+  const firstField = Object.keys(registry)[0];
+  return (
+    <div style={depth > 0 ? { border: "1px solid #e2e6e4", borderRadius: 6, padding: "4px 12px", margin: "6px 0" } : undefined}>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13, color: "#4f5c62" }}>
+        <AndOrToggle value={group.op === "or" ? "or" : "and"} label="Group logic"
+          onPick={(op) => onChange({ ...group, op })} />
+      </div>
+      {group.conditions.map((c, i) => (
+        isFilterGroup(c) ? (
+          <GroupEditor key={i} group={c} registry={registry} suggestions={suggestions} depth={depth + 1}
+            onChange={(next) => onChange(updateNodeAtPath(group, [i], next))} />
+        ) : (
+          <ConditionRow key={i} node={c} registry={registry} suggestions={suggestions}
+            onChange={(next) => onChange(updateNodeAtPath(group, [i], next))}
+            onRemove={() => onChange(removeNodeAtPath(group, [i]))} />
+        )
+      ))}
+      {group.conditions.length === 0 && (
+        <p style={{ fontSize: 13, color: "#65737a" }}>No conditions yet — add one below. Filtering stays server-side.</p>
+      )}
+      <div style={{ display: "flex", gap: 8, padding: "4px 0 8px" }}>
+        <button type="button" className="quiet-button"
+          onClick={() => firstField && onChange({ ...group, conditions: [...group.conditions, defaultCondition(firstField, registry)] })}>
+          + Add condition
+        </button>
+        {depth === 0 && (
+          <button type="button" className="quiet-button"
+            onClick={() => firstField && onChange({ ...group, conditions: [...group.conditions, { op: "or", conditions: [defaultCondition(firstField, registry)] }] })}>
+            + Add subgroup (AND/OR)
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function leavesWithPaths(node: FilterNode, path: number[] = []): Array<{ cond: FilterCondition; path: number[] }> {
+  if (isFilterGroup(node)) return node.conditions.flatMap((c, i) => leavesWithPaths(c, [...path, i]));
+  return [{ cond: node, path }];
+}
+
+/* Sidebar section plan. Intersected with the backend registry at render so
+   the server stays the source of truth for supported fields. */
+const FILTER_SECTIONS: Array<{ title: string; fields: string[] }> = [
+  { title: "COMPANY", fields: ["current_company", "past_company", "company_type", "company_hq"] },
+  { title: "ROLE", fields: ["function", "current_job_title", "seniority_level", "past_job_title", "years_in_current_company", "years_in_current_position"] },
+  { title: "PERSONAL", fields: ["geography", "industry", "first_name", "last_name", "years_of_experience", "school"] },
+];
+
+const FIELD_LABELS: Record<string, string> = {
+  current_company: "Current company",
+  past_company: "Past company",
+  company_type: "Company type",
+  company_hq: "Headquarters",
+  function: "Function",
+  current_job_title: "Current job title",
+  seniority_level: "Seniority level",
+  past_job_title: "Past job title",
+  years_in_current_company: "Years in current company",
+  years_in_current_position: "Years in current position",
+  geography: "Geography",
+  industry: "Industry",
+  first_name: "First name",
+  last_name: "Last name",
+  years_of_experience: "Years of experience",
+  school: "School",
+};
+
+function fieldLabel(field: string): string {
+  return FIELD_LABELS[field] ?? field.replaceAll("_", " ");
+}
+
+function AddFieldCondition({ field, spec, suggestions, onAdd }: {
+  field: string;
+  spec: FilterFieldSpec;
+  suggestions: string[];
+  onAdd: (cond: FilterCondition) => void;
+}) {
+  const [operator, setOperator] = useState(spec.operators[0]);
+  const [value, setValue] = useState<string>("");
+  const [values, setValues] = useState<(string | number)[]>([]);
+  const [low, setLow] = useState("");
+  const [high, setHigh] = useState("");
+  const listId = useState(() => `fld-${field}-${Math.random().toString(36).slice(2)}`)[0];
+
+  const add = () => {
+    if (SINGLE_VALUE_OPS.has(operator)) {
+      if (spec.kind === "numeric") {
+        if (value.trim() === "" || Number.isNaN(Number(value))) return;
+        onAdd({ field, operator, value: Number(value) });
+      } else {
+        if (value.trim() === "") return;
+        onAdd({ field, operator, value: value.trim() });
+      }
+    } else if (operator === "between") {
+      if (low.trim() === "" || high.trim() === "" || Number.isNaN(Number(low)) || Number.isNaN(Number(high))) return;
+      onAdd({ field, operator, values: [Number(low), Number(high)] });
+    } else if (LIST_VALUE_OPS.has(operator)) {
+      if (values.length === 0) return;
+      onAdd({ field, operator, values });
+    } else {
+      onAdd({ field, operator });
+    }
+    setValue(""); setValues([]); setLow(""); setHigh("");
+  };
+
+  return (
+    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", padding: "6px 0" }}>
+      <select value={operator} aria-label="Operator"
+        onChange={(e) => { setOperator(e.target.value); setValue(""); setValues([]); setLow(""); setHigh(""); }}
+        style={{ padding: "6px 10px", fontSize: 13, border: "1px solid #cfd4d2", borderRadius: 4, maxWidth: 130 }}>
+        {spec.operators.map((op) => <option key={op} value={op}>{OPERATOR_LABELS[op] ?? op}</option>)}
+      </select>
+      {SINGLE_VALUE_OPS.has(operator) && (
+        spec.kind === "numeric" ? (
+          <input type="number" value={value} aria-label="Years" placeholder="Years…"
+            onChange={(e) => setValue(e.target.value)}
+            style={{ width: 90, padding: "6px 10px", fontSize: 13, border: "1px solid #cfd4d2", borderRadius: 4 }} />
+        ) : (
+          <input type="text" value={value} list={suggestions.length > 0 ? listId : undefined}
+            aria-label="Filter value" placeholder={suggestions.length > 0 ? "Type or pick…" : "Value…"}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
+            style={{ flex: "1 1 120px", minWidth: 100, padding: "6px 10px", fontSize: 13, border: "1px solid #cfd4d2", borderRadius: 4 }} />
+        )
+      )}
+      {operator === "between" && (
+        <span style={{ display: "inline-flex", gap: 4, alignItems: "center", fontSize: 12, color: "#4f5c62" }}>
+          <input type="number" value={low} aria-label="Between low" onChange={(e) => setLow(e.target.value)}
+            style={{ width: 64, padding: "6px 8px", fontSize: 13, border: "1px solid #cfd4d2", borderRadius: 4 }} />
+          –
+          <input type="number" value={high} aria-label="Between high" onChange={(e) => setHigh(e.target.value)}
+            style={{ width: 64, padding: "6px 8px", fontSize: 13, border: "1px solid #cfd4d2", borderRadius: 4 }} />
+        </span>
+      )}
+      {LIST_VALUE_OPS.has(operator) && operator !== "between" && (
+        <MultiValueEditor values={values} suggestions={suggestions} onChange={setValues} />
+      )}
+      {suggestions.length > 0 && SINGLE_VALUE_OPS.has(operator) && spec.kind !== "numeric" && (
+        <datalist id={listId}>{suggestions.map((s) => <option key={s} value={s} />)}</datalist>
+      )}
+      <button type="button" className="quiet-button" onClick={add}>Add</button>
+    </div>
+  );
+}
+
+export function FilterSidebar({ registry, tree, suggestions, onChange, onClear }: {
+  registry: Record<string, FilterFieldSpec> | null;
+  tree: FilterGroup;
+  suggestions: Record<string, string[]>;
+  onChange: (next: FilterGroup) => void;
+  onClear: () => void;
+}) {
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({ COMPANY: true });
+  const [openFields, setOpenFields] = useState<Record<string, boolean>>({});
+  const [showLogic, setShowLogic] = useState(false);
+  if (!registry) return <p style={{ fontSize: 13, color: "#65737a" }}>Loading filter fields…</p>;
+
+  const leafCount = countLeaves(tree);
+  const countFor = (fields: string[]) =>
+    leavesWithPaths(tree).filter((l) => fields.includes(l.cond.field)).length;
+  const appendLeaf = (cond: FilterCondition) => onChange({ ...tree, conditions: [...tree.conditions, cond] });
+  const hasSubgroups = tree.conditions.some((c) => isFilterGroup(c));
+
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13, color: "#4f5c62", marginBottom: 4 }}>
+        <AndOrToggle value={tree.op === "or" ? "or" : "and"} label="Filter logic"
+          onPick={(op) => onChange({ ...tree, op })} />
+        <span style={{ marginLeft: "auto" }} />
+        {leafCount > 0 && <button type="button" className="quiet-button" onClick={onClear}>Clear all</button>}
+      </div>
+      {FILTER_SECTIONS.map((section) => {
+        const fields = section.fields.filter((f) => registry[f]);
+        const active = countFor(section.fields);
+        const open = !!openSections[section.title];
+        return (
+          <div key={section.title} style={{ borderTop: "1px solid #ecece6", padding: "4px 0" }}>
+            <button type="button" onClick={() => setOpenSections((s) => ({ ...s, [section.title]: !open }))}
+              aria-expanded={open}
+              style={{ display: "flex", width: "100%", justifyContent: "space-between", alignItems: "center", background: "none", border: "none", cursor: "pointer", padding: "8px 0", fontSize: 12, fontWeight: 700, letterSpacing: ".06em", color: "#2b3b46" }}>
+              <span>{section.title}</span>
+              <span style={{ fontWeight: 400, color: active > 0 ? "#1f2d38" : "#9aa7ac", letterSpacing: 0 }}>
+                {active > 0 ? `${active} active` : "0"}&nbsp;&nbsp;{open ? "▾" : "▸"}
+              </span>
+            </button>
+            {open && fields.map((f) => {
+              const spec = registry[f];
+              const leaves = leavesWithPaths(tree).filter((l) => l.cond.field === f);
+              const fOpen = !!openFields[f];
+              return (
+                <div key={f} style={{ padding: "2px 0 2px 8px" }}>
+                  <button type="button" onClick={() => setOpenFields((s) => ({ ...s, [f]: !fOpen }))}
+                    aria-expanded={fOpen}
+                    style={{ display: "flex", width: "100%", justifyContent: "space-between", alignItems: "center", background: "none", border: "none", cursor: "pointer", padding: "6px 0", fontSize: 13, color: "#2b3b46" }}>
+                    <span>{fieldLabel(f)}{leaves.length > 0 && <span style={{ color: "#68777e" }}> · {leaves.length}</span>}</span>
+                    <span style={{ color: "#9aa7ac" }}>{fOpen ? "▾" : "▸"}</span>
+                  </button>
+                  {fOpen && (
+                    <div style={{ paddingBottom: 6 }}>
+                      {leaves.map(({ cond, path }) => (
+                        <span key={path.join(".")} className="filter-chip" style={{ margin: "0 6px 6px 0" }}>
+                          {describeCondition(cond)}
+                          <button type="button" className="quiet-button" aria-label={`Remove ${fieldLabel(f)} filter`}
+                            style={{ padding: "0 6px", border: "none", background: "transparent", color: "#fff" }}
+                            onClick={() => onChange(removeNodeAtPath(tree, path))}>×</button>
+                        </span>
+                      ))}
+                      <AddFieldCondition field={f} spec={spec} suggestions={suggestions[f] ?? []} onAdd={appendLeaf} />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {open && section.title === "PERSONAL" && (
+              <div style={{ padding: "2px 0 2px 8px" }}>
+                <div style={{ display: "flex", width: "100%", justifyContent: "space-between", alignItems: "center", padding: "6px 0", fontSize: 13, color: "#9aa7ac" }}>
+                  <span>Groups · Phase B</span>
+                </div>
+                <p style={{ fontSize: 12, color: "#68777e", margin: "0 0 6px" }}>
+                  Group-based filtering arrives with governed Groups in Phase B; the saved filter shape is already compatible.
+                </p>
+              </div>
+            )}
+          </div>
+        );
+      })}
+      <div style={{ borderTop: "1px solid #ecece6", padding: "4px 0" }}>
+        <button type="button" onClick={() => setShowLogic((v) => !v)} aria-expanded={showLogic}
+          style={{ display: "flex", width: "100%", justifyContent: "space-between", alignItems: "center", background: "none", border: "none", cursor: "pointer", padding: "8px 0", fontSize: 12, fontWeight: 700, letterSpacing: ".06em", color: "#2b3b46" }}>
+          <span>NESTED LOGIC{hasSubgroups ? " · in use" : ""}</span>
+          <span style={{ color: "#9aa7ac" }}>{showLogic ? "▾" : "▸"}</span>
+        </button>
+        {showLogic && (
+          <div style={{ paddingBottom: 6 }}>
+            <GroupEditor group={tree} registry={registry} suggestions={suggestions} depth={0} onChange={onChange} />
+          </div>
+        )}
+      </div>
+      <p style={{ fontSize: 12, color: "#68777e", marginTop: 8 }}>
+        Filters evaluate on the server together with name, Roll Number, stale-profile, and organisation search as one intersection.
+      </p>
+    </div>
+  );
+}
+
 function People({ staleSignal, profileId, onOpenProfile, onAuthChange, user }: { staleSignal: number; profileId?: string; onOpenProfile: (id: string) => void; onAuthChange: () => void; user: AuthUser | null }) {
   const canWrite = !!user && (user.is_superuser || user.permissions.includes("constituents.write"));
   const [searchQuery, setSearchQuery] = useState("");
@@ -254,6 +697,30 @@ function People({ staleSignal, profileId, onOpenProfile, onAuthChange, user }: {
   const [error, setError] = useState<string | null>(null);
   const [selectedProfile, setSelectedProfile] = useState<Profile360 | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
+  // M1.1 advanced segmentation: the tree is the single filter state; when it
+  // holds conditions, search goes through POST /constituents/search so the
+  // backend evaluates name/roll/stale/org criteria as one intersection.
+  const [advOpen, setAdvOpen] = useState(false);
+  const [filterTree, setFilterTree] = useState<FilterGroup>({ op: "and", conditions: [] });
+  const [registry, setRegistry] = useState<Record<string, FilterFieldSpec> | null>(null);
+  const [suggestions, setSuggestions] = useState<Record<string, string[]>>({});
+  const advActive = filterTree.conditions.length > 0;
+  const leafCount = countLeaves(filterTree);
+  // B2 selection: explicit IDs (row boxes; page-select just fills IDs) vs the
+  // whole server-side filtered population. No page-population semantic.
+  const [selectedIds, setSelectedIds] = useState<Record<string, boolean>>({});
+  const [selectFiltered, setSelectFiltered] = useState(false);
+  const [groupDialog, setGroupDialog] = useState<GroupSelection | null>(null);
+  const [exportDialog, setExportDialog] = useState<ExportPopulation | null>(null);
+  const showExport = canExport(user);
+  const canAddToGroup = !!user && (user.is_superuser || user.permissions.includes("groups.manage_members"));
+  const selectedList = Object.keys(selectedIds).filter((id) => selectedIds[id]);
+  const clearSelection = () => { setSelectedIds({}); setSelectFiltered(false); };
+  // A filtered-population selection is a snapshot: any criteria change voids it
+  // (explicit IDs persist). The dialog re-evaluates live at confirm regardless.
+  useEffect(() => { setSelectFiltered(false); },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [searchQuery, rollNoQuery, orgQuery, staleOnly, thresholdDays, filterTree, mode]);
 
   useEffect(() => {
     if (staleSignal > 0) {
@@ -263,11 +730,45 @@ function People({ staleSignal, profileId, onOpenProfile, onAuthChange, user }: {
     }
   }, [staleSignal]);
 
+  useEffect(() => {
+    if (!advOpen || registry) return;
+    api.segmentation.getFilterFields()
+      .then((d) => setRegistry(d.fields))
+      .catch(() => setRegistry(null));
+    (async () => {
+      try {
+        const cats: Array<[string, string]> = [["industry", "industry"], ["company_type", "company_type"], ["function", "function"], ["seniority_level", "seniority_level"]];
+        const out: Record<string, string[]> = {};
+        for (const [field, cat] of cats) {
+          const data = await api.taxonomies.list({ category: cat });
+          out[field] = data.items.filter((t) => t.is_active).map((t) => t.value);
+        }
+        setSuggestions(out);
+      } catch {
+        /* suggestions are advisory; filters work without them */
+      }
+    })();
+  }, [advOpen, registry]);
+
   const doSearch = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      if (mode === "org") {
+      if (advActive) {
+        const data = await api.segmentation.advancedSearch({
+          q: mode === "people" ? (searchQuery || undefined) : undefined,
+          roll_no: mode === "people" ? (rollNoQuery || undefined) : undefined,
+          kind: "PERSON",
+          organisation_q: mode === "org" ? (orgQuery || undefined) : undefined,
+          stale_threshold_days: mode === "people" && staleOnly ? thresholdDays : undefined,
+          filter: filterTree,
+          page,
+          page_size: pageSize,
+        });
+        setResults(data.items);
+        setOrgResults([]);
+        setTotal(data.total);
+      } else if (mode === "org") {
         if (!orgQuery.trim()) { setOrgResults([]); setTotal(0); return; }
         const data = await api.constituents.searchOrganisations({ q: orgQuery, page, page_size: pageSize });
         setOrgResults(data.items);
@@ -298,7 +799,7 @@ function People({ staleSignal, profileId, onOpenProfile, onAuthChange, user }: {
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, rollNoQuery, orgQuery, mode, staleOnly, thresholdDays, page, pageSize, onAuthChange]);
+  }, [searchQuery, rollNoQuery, orgQuery, mode, staleOnly, thresholdDays, page, pageSize, onAuthChange, advActive, filterTree]);
 
   useEffect(() => {
     const timer = setTimeout(doSearch, 300);
@@ -388,14 +889,25 @@ function People({ staleSignal, profileId, onOpenProfile, onAuthChange, user }: {
   };
 
   return (
-    <section className="module-preview">
-      <div style={{display:"flex",gap:8,marginBottom:16}}>
-        <button type="button" className="quiet-button" disabled={mode === "people"} onClick={() => { setMode("people"); setPage(1); }}>People search</button>
-        <button type="button" className="quiet-button" disabled={mode === "org"} onClick={() => { setMode("org"); setPage(1); }}>Organisation search</button>
-        <label style={{display:"flex",gap:6,alignItems:"center",fontSize:13,color:"#4f5c62",marginLeft:8}}>
-          <input type="checkbox" checked={staleOnly} disabled={mode !== "people"} onChange={(e) => { setStaleOnly(e.target.checked); setPage(1); }} />
-          Stale only (&gt; <input type="number" value={thresholdDays} min={1} onChange={(e) => { setThresholdDays(Number(e.target.value) || 365); setPage(1); }} style={{width:64,padding:"4px 6px",fontSize:13}} /> days)
-        </label>
+    <section className="people-page" aria-label="People workspace">
+      <div style={{display:"flex",gap:16,marginBottom:16,flexWrap:"wrap",alignItems:"center"}}>
+        <div className="segmented" role="tablist" aria-label="Search mode">
+          <button type="button" role="tab" aria-selected={mode === "people"}
+            className={`segmented__tab ${mode === "people" ? "segmented__tab--active" : ""}`}
+            onClick={() => { setMode("people"); setPage(1); clearSelection(); }}>
+            People search{mode === "people" ? " · active" : ""}
+          </button>
+          <button type="button" role="tab" aria-selected={mode === "org"}
+            className={`segmented__tab ${mode === "org" ? "segmented__tab--active" : ""}`}
+            onClick={() => { setMode("org"); setPage(1); clearSelection(); }}>
+            Organisation search{mode === "org" ? " · active" : ""}
+          </button>
+        </div>
+        <span style={{fontSize:13,color:"#4f5c62"}} aria-live="polite">
+          {mode === "people"
+            ? "Searching People — every alumnus and donor person record."
+            : "Searching Organisations — current and past affiliations, one row per person."}
+        </span>
       </div>
 
       {mode === "people" ? (
@@ -427,6 +939,10 @@ function People({ staleSignal, profileId, onOpenProfile, onAuthChange, user }: {
         >
           {loading ? "Searching…" : "Search"}
         </button>
+        <label style={{display:"flex",gap:6,alignItems:"center",fontSize:13,color:"#4f5c62"}}>
+          <input type="checkbox" checked={staleOnly} onChange={(e) => { setStaleOnly(e.target.checked); setPage(1); }} />
+          Stale only (&gt; <input type="number" value={thresholdDays} min={1} onChange={(e) => { setThresholdDays(Number(e.target.value) || 365); setPage(1); }} style={{width:64,padding:"4px 6px",fontSize:13}} /> days)
+        </label>
       </div>
       ) : (
       <div style={{display:"flex",gap:12,flexWrap:"wrap",marginBottom:16,alignItems:"flexEnd"}}>
@@ -452,9 +968,143 @@ function People({ staleSignal, profileId, onOpenProfile, onAuthChange, user }: {
 
       {error && <div className="note" style={{background:"#fdeaea",borderLeftColor:"#c0392b",color:"#c0392b",marginBottom:16}}>{error}</div>}
 
+      <div className="people-layout">
+      <div className="people-layout__main">
+      {/* Action toolbar. Phase B (Groups) and Phase C (Export) buttons mount
+          in the right-hand slot next to the Filters toggle — no redesign. */}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap",margin:"0 0 12px"}}>
+        <strong style={{fontSize:15}} aria-live="polite">
+          {mode === "org" && !advActive
+            ? `${total} result${total === 1 ? "" : "s"}`
+            : advActive
+              ? `${total} alumn${total === 1 ? "us" : "i"} match these filters`
+              : `${total} alumn${total === 1 ? "us" : "i"}${staleOnly && mode === "people" ? " (stale filter applied)" : ""}`}
+        </strong>
+        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+          {mode === "people" && showExport && (
+            <button type="button" className="quiet-button"
+              onClick={() => {
+                if (selectFiltered || selectedList.length > 0) {
+                  // Selection-driven export reuses the same snapshot shape.
+                  if (selectFiltered) {
+                    setExportDialog({
+                      kind: "filtered",
+                      query: {
+                        filter: filterTree,
+                        q: searchQuery.trim() || undefined,
+                        roll_no: rollNoQuery.trim() || undefined,
+                        stale_threshold_days: staleOnly ? thresholdDays : undefined,
+                      },
+                    });
+                  } else {
+                    setExportDialog({ kind: "ids", ids: selectedList });
+                  }
+                } else if (advActive) {
+                  setExportDialog({
+                    kind: "filtered",
+                    query: {
+                      filter: filterTree,
+                      q: searchQuery.trim() || undefined,
+                      roll_no: rollNoQuery.trim() || undefined,
+                      stale_threshold_days: staleOnly ? thresholdDays : undefined,
+                    },
+                  });
+                } else {
+                  setExportDialog({ kind: "all" });
+                }
+              }}>
+              Export
+            </button>
+          )}
+          {mode === "people" && canAddToGroup && (selectedList.length > 0 || selectFiltered) && (
+            <button type="button" className="quiet-button"
+              onClick={() => {
+                if (selectFiltered) {
+                  setGroupDialog({
+                    kind: "filtered",
+                    query: {
+                      filter: filterTree,
+                      q: searchQuery.trim() || undefined,
+                      roll_no: rollNoQuery.trim() || undefined,
+                      stale_threshold_days: staleOnly ? thresholdDays : undefined,
+                    },
+                  });
+                } else {
+                  setGroupDialog({ kind: "ids", ids: selectedList });
+                }
+              }}>
+              Add to group
+            </button>
+          )}
+          {mode === "people" && (
+            <button type="button" className="quiet-button" onClick={() => setAdvOpen((v) => !v)} aria-expanded={advOpen}>
+              {advOpen ? "Hide filters" : `Filters${leafCount > 0 ? ` · ${leafCount}` : ""}`}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {mode === "people" && (
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",marginBottom:12, fontSize:13, color:"#4f5c62"}}>
+          {selectFiltered ? (
+            <>
+              <span>All <strong>{total} matching people</strong> selected (server-side filter snapshot).</span>
+              <button type="button" className="quiet-button" onClick={() => setSelectFiltered(false)}>Clear</button>
+            </>
+          ) : (
+            <>
+              {selectedList.length > 0 && <span><strong>{selectedList.length} selected</strong></span>}
+              {advActive && total > 0 && (
+                <button type="button" className="quiet-button" onClick={() => { setSelectedIds({}); setSelectFiltered(true); }}>
+                  Select all {total} matching
+                </button>
+              )}
+              {selectedList.length > 0 && (
+                <button type="button" className="quiet-button" onClick={() => setSelectedIds({})}>Clear</button>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {groupDialog && (
+        <AddToGroupDialog selection={groupDialog} onClose={() => setGroupDialog(null)}
+          onDone={() => { setGroupDialog(null); clearSelection(); }} />
+      )}
+
+      {exportDialog && showExport && (
+        <ExportDialog
+          title="Export people to Excel"
+          subtitle={
+            exportDialog.kind === "ids" ? `Exporting ${exportDialog.ids.length} selected ${exportDialog.ids.length === 1 ? "person" : "people"}.`
+            : exportDialog.kind === "filtered" ? `Exporting the current server-side filtered population (${total} match right now; re-evaluated at generation).`
+            : `Exporting all ${total} visible alumni.`
+          }
+          population={exportDialog}
+          onClose={() => setExportDialog(null)} />
+      )}
+
+      {advActive && (
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",marginBottom:12}}>
+          <span style={{fontSize:12,color:"#68777e"}}>Active filters:</span>
+          {leavesWithPaths(filterTree).map(({ cond, path }) => (
+            <span key={path.join(".")} className="filter-chip">
+              {describeCondition(cond)}
+              <button type="button" className="quiet-button" aria-label={`Remove filter ${describeCondition(cond)}`}
+                style={{padding:"0 6px",border:"none",background:"transparent",color:"#fff"}}
+                onClick={() => { setFilterTree(removeNodeAtPath(filterTree, path)); setPage(1); }}>×</button>
+            </span>
+          ))}
+          <button type="button" className="quiet-button"
+            onClick={() => { setFilterTree({ op: "and", conditions: [] }); setPage(1); }}>
+            Clear all
+          </button>
+        </div>
+      )}
+
       <div className="panel">
         <div className="table-wrap">
-          {mode === "org" ? (
+          {mode === "org" && !advActive ? (
           <table>
             <thead>
               <tr>
@@ -487,6 +1137,20 @@ function People({ staleSignal, profileId, onOpenProfile, onAuthChange, user }: {
           <table>
             <thead>
               <tr>
+                {mode === "people" && (
+                  <th aria-label="Select">
+                    <input type="checkbox" aria-label="Select all on this page"
+                      checked={results.length > 0 && results.every((c) => selectedIds[c.id])}
+                      onChange={(e) => {
+                        const next: Record<string, boolean> = { ...selectedIds };
+                        for (const c of results) {
+                          if (e.target.checked) next[c.id] = true;
+                          else delete next[c.id];
+                        }
+                        setSelectedIds(next);
+                      }} />
+                  </th>
+                )}
                 <th>Name</th>
                 <th>Roll No.</th>
                 <th>Academic</th>
@@ -497,10 +1161,21 @@ function People({ staleSignal, profileId, onOpenProfile, onAuthChange, user }: {
             </thead>
             <tbody>
               {results.length === 0 && !loading ? (
-                <tr><td colSpan={6} style={{textAlign:"center",color:"#65737a",padding:32}}>{staleOnly ? "No stale profiles on this page. The dashboard count and this list use the same server-side filter." : "No results. Try a name search or exact Roll Number."}</td></tr>
+                <tr><td colSpan={mode === "people" ? 7 : 6} style={{textAlign:"center",color:"#65737a",padding:32}}>{advActive ? "No alumni match these filters. Adjust or clear a filter to broaden the search." : staleOnly ? "No stale profiles on this page. The dashboard count and this list use the same server-side filter." : "No results. Try a name search or exact Roll Number."}</td></tr>
               ) : (
                 results.map((c) => (
                   <tr key={c.id} onClick={() => handleProfileClick(c)} style={{cursor:"pointer"}}>
+                    {mode === "people" && (
+                      <td onClick={(e) => e.stopPropagation()}>
+                        <input type="checkbox" aria-label={`Select ${c.display_name}`} checked={!!selectedIds[c.id]}
+                          onChange={() => setSelectedIds((s) => {
+                            const next = { ...s };
+                            if (next[c.id]) delete next[c.id];
+                            else next[c.id] = true;
+                            return next;
+                          })} />
+                      </td>
+                    )}
                     <td><strong>{c.display_name}</strong></td>
                     <td>{c.kind === "PERSON" ? "—" : c.normalised_display_name}</td>
                     <td>{getAcademicSummary(null)}</td>
@@ -514,20 +1189,40 @@ function People({ staleSignal, profileId, onOpenProfile, onAuthChange, user }: {
           </table>
           )}
         </div>
+        {loading && (
+          <div className="panel__footer"><span>Searching… filtering runs on the server.</span></div>
+        )}
         {total > 0 && (
-          <div className="panel__footer" style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <span>Showing {mode === "org" ? orgResults.length : results.length} of {total} result{total !== 1 ? "s" : ""}{staleOnly && mode === "people" ? " (stale filter applied)" : ""}</span>
+          <div className="panel__footer" style={{display:"flex",justifyContent:"flex-end",alignItems:"center"}}>
             <div style={{display:"flex",gap:8}}>
               <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="quiet-button">Previous</button>
+              <span style={{alignSelf:"center"}}>Page {page} of {Math.max(1, Math.ceil(total / pageSize))}</span>
               <button onClick={() => setPage(p => p + 1)} disabled={page * pageSize >= total} className="quiet-button">Next</button>
             </div>
           </div>
         )}
       </div>
+      </div>{/* people-layout__main */}
+      {mode === "people" && advOpen && (
+        <aside className="people-layout__side" aria-label="Filters">
+          <div className="panel">
+            <div className="panel__heading"><div><p className="eyebrow">M1.1 · Segmentation</p><h3>Filters{leafCount > 0 ? ` (${leafCount} active)` : ""}</h3></div>
+              <button type="button" className="quiet-button" onClick={() => setAdvOpen(false)}>Hide</button>
+            </div>
+            <div style={{padding:12}}>
+              <FilterSidebar registry={registry} tree={filterTree} suggestions={suggestions}
+                onChange={(next) => { setFilterTree(next); setPage(1); }}
+                onClear={() => { setFilterTree({ op: "and", conditions: [] }); setPage(1); }} />
+            </div>
+          </div>
+        </aside>
+      )}
+      </div>{/* people-layout */}
 
       <div className="note" style={{marginTop:16}}>
         <strong>M1 Live:</strong> This view queries the PostgreSQL-backed FastAPI at <code>{import.meta.env.VITE_API_URL || "http://localhost:8000/api/v1"}</code>.
         Exact Roll Number returns one record; name search uses partial matching. Organisation search covers current and past affiliations with a visible status. Click a row to open the 360° profile. Restricted fields are withheld server-side when your role lacks permission.
+        Segmentation filters evaluate on the server; taxonomy values are staff-managed under Administration → Master data.
       </div>
     </section>
   );
@@ -766,7 +1461,7 @@ function ProfileDetail({ profile, onChanged, loading, canWrite }: { profile: Pro
     ssac_records = [], positions_of_responsibility = [], publications = [],
     overseas_exposure = [], family_members = [], profile_photos = [] } = profile;
   const [eduForm, setEduForm] = useState({ qualification: "", institution_name: "", completion_year: "" });
-  const [affForm, setAffForm] = useState({ organisation_name_raw: "", designation: "", city: "", country: "", start_date: "", is_current: true });
+  const [affForm, setAffForm] = useState({ organisation_name_raw: "", designation: "", aff_function: "", seniority_level: "", city: "", country: "", start_date: "", is_current: true });
   const [writeMsg, setWriteMsg] = useState<string | null>(null);
   const [writing, setWriting] = useState(false);
 
@@ -815,12 +1510,14 @@ function ProfileDetail({ profile, onChanged, loading, canWrite }: { profile: Pro
       await api.constituents.addAffiliation(constituent.id, {
         organisation_name_raw: affForm.organisation_name_raw.trim() || undefined,
         designation: affForm.designation.trim() || undefined,
+        function: affForm.aff_function.trim() || undefined,
+        seniority_level: affForm.seniority_level.trim() || undefined,
         city: affForm.city.trim() || undefined,
         country: affForm.country.trim() || undefined,
         start_date: affForm.start_date || undefined,
         is_current: affForm.is_current,
       });
-      setAffForm({ organisation_name_raw: "", designation: "", city: "", country: "", start_date: "", is_current: true });
+      setAffForm({ organisation_name_raw: "", designation: "", aff_function: "", seniority_level: "", city: "", country: "", start_date: "", is_current: true });
       onChanged();
     } catch (e) {
       setWriteMsg(e instanceof Error ? e.message : "Could not add affiliation.");
@@ -830,11 +1527,12 @@ function ProfileDetail({ profile, onChanged, loading, canWrite }: { profile: Pro
   };
 
   const [editingIdentity, setEditingIdentity] = useState(false);
-  const [identityForm, setIdentityForm] = useState({ first_name: "", full_name: "", gender: "", date_of_birth: "", blood_group: "", spouse_name: "", status: "", notes: "" });
+  const [identityForm, setIdentityForm] = useState({ first_name: "", full_name: "", last_name: "", gender: "", date_of_birth: "", blood_group: "", spouse_name: "", status: "", notes: "" });
   const startIdentityEdit = () => {
     setIdentityForm({
       first_name: person?.first_name || "",
       full_name: person?.full_name || "",
+      last_name: person?.last_name || "",
       gender: person?.gender || "",
       date_of_birth: person?.date_of_birth || "",
       blood_group: person?.blood_group || "",
@@ -852,6 +1550,7 @@ function ProfileDetail({ profile, onChanged, loading, canWrite }: { profile: Pro
       await api.constituents.updatePerson(constituent.id, {
         first_name: identityForm.first_name.trim() || undefined,
         full_name: identityForm.full_name.trim(),
+        last_name: identityForm.last_name.trim() || undefined,
         gender: identityForm.gender || undefined,
         date_of_birth: identityForm.date_of_birth || undefined,
         blood_group: identityForm.blood_group || undefined,
@@ -1096,6 +1795,7 @@ return (
             <div style={{padding:16, display:"grid", gridTemplateColumns:"120px 1fr", gap:"8px 16px", fontSize:14, alignItems:"center"}}>
               <dt>Full name</dt><dd><input type="text" value={identityForm.full_name} onChange={(e) => setIdentityForm({...identityForm, full_name: e.target.value})} style={{width:"100%",padding:"6px 10px",fontSize:13,border:"1px solid #cfd4d2",borderRadius:4}} /></dd>
               <dt>First name</dt><dd><input type="text" value={identityForm.first_name} onChange={(e) => setIdentityForm({...identityForm, first_name: e.target.value})} style={{width:"100%",padding:"6px 10px",fontSize:13,border:"1px solid #cfd4d2",borderRadius:4}} /></dd>
+              <dt>Last name</dt><dd><input type="text" value={identityForm.last_name} onChange={(e) => setIdentityForm({...identityForm, last_name: e.target.value})} style={{width:"100%",padding:"6px 10px",fontSize:13,border:"1px solid #cfd4d2",borderRadius:4}} /></dd>
               <dt>Gender</dt><dd><select value={identityForm.gender} onChange={(e) => setIdentityForm({...identityForm, gender: e.target.value})} style={{padding:"6px 10px",fontSize:13,border:"1px solid #cfd4d2",borderRadius:4}}><option value="">—</option><option>MALE</option><option>FEMALE</option><option>OTHER</option><option>PREFER_NOT_TO_SAY</option></select></dd>
               <dt>Date of birth</dt><dd><input type="date" value={identityForm.date_of_birth} onChange={(e) => setIdentityForm({...identityForm, date_of_birth: e.target.value})} style={{padding:"6px 10px",fontSize:13,border:"1px solid #cfd4d2",borderRadius:4}} /></dd>
               <dt>Blood group</dt><dd><select value={identityForm.blood_group} onChange={(e) => setIdentityForm({...identityForm, blood_group: e.target.value})} style={{padding:"6px 10px",fontSize:13,border:"1px solid #cfd4d2",borderRadius:4}}><option value="">—</option>{["A+","A-","B+","B-","AB+","AB-","O+","O-"].map((b) => <option key={b} value={b}>{b}</option>)}</select></dd>
@@ -1108,6 +1808,7 @@ return (
           <dl style={{margin:0,padding:16,display:"grid",gridTemplateColumns:"120px 1fr",gap:"8px 16px"}}>
             <dt>Full name</dt><dd>{person?.full_name || "—"}</dd>
             <dt>First name</dt><dd>{person?.first_name || "—"}</dd>
+            <dt>Last name</dt><dd>{person?.last_name || "—"}</dd>
             <dt>Gender</dt><dd>{person?.gender || "—"}</dd>
             <dt>Date of birth</dt><dd>{formatDate(person?.date_of_birth || null)}</dd>
             <dt>Blood group</dt><dd>{person?.blood_group || "—"}</dd>
@@ -1254,25 +1955,29 @@ return (
         <article className="panel">
           <div className="panel__heading"><h3>Career History ({affiliations.length})</h3></div>
           <div className="table-wrap">
-            <table><thead><tr><th>Organisation</th><th>Designation</th><th>Type</th><th>Location</th><th>Period</th><th>Current</th></tr></thead>
+            <table><thead><tr><th>Organisation</th><th>Designation</th><th>Function</th><th>Seniority</th><th>Type</th><th>Location</th><th>Period</th><th>Current</th></tr></thead>
             <tbody>
               {affiliations.map(af => (
                 <tr key={af.id}>
                   <td>{af.organisation_name_raw || "—"}</td>
                   <td>{af.designation || "—"}</td>
+                  <td>{af.function || "—"}</td>
+                  <td>{af.seniority_level || "—"}</td>
                   <td>{af.affiliation_type || "—"}</td>
                   <td>{[af.city, af.state, af.country].filter(Boolean).join(", ") || "—"}</td>
                   <td>{formatDate(af.start_date)} – {formatDate(af.end_date) || "Present"}</td>
                   <td>{af.is_current ? "✓ Current" : "Past"}</td>
                 </tr>
               ))}
-              {affiliations.length === 0 && <tr><td colSpan={6} style={{textAlign:"center",color:"#65737a",padding:16}}>No affiliations</td></tr>}
+              {affiliations.length === 0 && <tr><td colSpan={8} style={{textAlign:"center",color:"#65737a",padding:16}}>No affiliations</td></tr>}
             </tbody>
             </table>
           </div>
           <div style={{padding:12, borderTop:"1px solid #ecece6", display:"flex", gap:8, flexWrap:"wrap", alignItems:"flexEnd"}}>
             <input type="text" placeholder="Organisation" value={affForm.organisation_name_raw} onChange={(e) => setAffForm({...affForm, organisation_name_raw: e.target.value})} style={{flex:"1 1 150px",padding:"6px 10px",fontSize:13,border:"1px solid #cfd4d2",borderRadius:4}} />
             <input type="text" placeholder="Designation" value={affForm.designation} onChange={(e) => setAffForm({...affForm, designation: e.target.value})} style={{flex:"1 1 130px",padding:"6px 10px",fontSize:13,border:"1px solid #cfd4d2",borderRadius:4}} />
+            <input type="text" placeholder="Function (e.g., Engineering)" value={affForm.aff_function} onChange={(e) => setAffForm({...affForm, aff_function: e.target.value})} style={{flex:"1 1 130px",padding:"6px 10px",fontSize:13,border:"1px solid #cfd4d2",borderRadius:4}} />
+            <input type="text" placeholder="Seniority (e.g., Senior)" value={affForm.seniority_level} onChange={(e) => setAffForm({...affForm, seniority_level: e.target.value})} style={{flex:"1 1 110px",padding:"6px 10px",fontSize:13,border:"1px solid #cfd4d2",borderRadius:4}} />
             <input type="date" value={affForm.start_date} onChange={(e) => setAffForm({...affForm, start_date: e.target.value})} style={{padding:"6px 10px",fontSize:13,border:"1px solid #cfd4d2",borderRadius:4}} />
             <label style={{display:"flex",gap:6,alignItems:"center",fontSize:13,color:"#4f5c62"}}><input type="checkbox" checked={affForm.is_current} onChange={(e) => setAffForm({...affForm, is_current: e.target.checked})} /> Current</label>
             <button type="button" className="quiet-button" disabled={writing} onClick={submitAffiliation}>Add job</button>
