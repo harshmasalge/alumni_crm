@@ -12,3 +12,6 @@ __pycache__/
 *.pyc
 uploads/
 data/
+
+# Local alumni data
+Alumni Database.xlsx
