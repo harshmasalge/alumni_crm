@@ -1,6 +1,6 @@
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
-from typing import List, Optional
+from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -8,43 +8,51 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.auth import check_constituents_read
+from app.core.field_permissions import FieldPermissionChecker
 from app.db.session import get_db
 from app.models import (
-    Address,
     Affiliation,
     AlumniProfile,
-    AuditEvent,
-    CommunicationPreferences,
     Constituent,
-    ContactMethod,
     ConstituentKind,
     ConstituentStatus,
-    DonorProfile,
-    EducationRecord,
-    FileRecord,
     Organisation,
-    Person,
+    User,
 )
 from app.schemas import (
+    AcademicCourseResponse,
     AddressResponse,
     AffiliationResponse,
     AlumniProfileResponse,
     AuditEventResponse,
+    AwardRecognitionResponse,
     CommunicationPreferencesResponse,
     ConstituentResponse,
-    ConstituentSearchParams,
     ContactMethodResponse,
     DonorProfileResponse,
     EducationRecordResponse,
+    FamilyMemberResponse,
     FileRecordResponse,
+    GpsAssignmentResponse,
+    HostelHistoryResponse,
+    InternshipResponse,
     OrganisationResponse,
-    OrganisationSearchParams,
     OrganisationSearchResponse,
     OrganisationSearchResult,
+    OverseasExposureResponse,
     PaginatedResponse,
     PersonResponse,
+    PlacementResponse,
+    PositionOfResponsibilityResponse,
     Profile360Response,
+    ProfilePhotoResponse,
+    PublicationResponse,
+    ScholarshipFinancialAidResponse,
+    SemesterPerformanceResponse,
+    SsacRecordResponse,
     StaleProfileCountResponse,
+    StartupResponse,
 )
 
 router = APIRouter()
@@ -59,24 +67,23 @@ async def search_constituents(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(check_constituents_read),
 ) -> PaginatedResponse:
     """
     Search constituents by name (partial match) or exact roll number.
+    Requires constituents.read permission.
     """
-    # Build base query
+    field_checker = FieldPermissionChecker(db)
     query = select(Constituent)
 
-    # Apply filters
     conditions = []
 
     if roll_no:
-        # Exact roll number match - join with alumni_profiles
         subquery = select(AlumniProfile.constituent_id).where(
             AlumniProfile.roll_no == roll_no.strip().upper()
         )
         conditions.append(Constituent.id.in_(subquery))
     elif q:
-        # Partial name search on normalised_display_name
         search_term = f"%{q.strip().lower()}%"
         conditions.append(Constituent.normalised_display_name.ilike(search_term))
 
@@ -103,12 +110,10 @@ async def search_constituents(
     if conditions:
         query = query.where(*conditions)
 
-    # Get total count
     count_query = select(func.count()).select_from(query.subquery())
     total_result = await db.execute(count_query)
     total = total_result.scalar() or 0
 
-    # Apply pagination
     query = query.order_by(Constituent.display_name).offset((page - 1) * page_size).limit(page_size)
 
     result = await db.execute(query)
@@ -116,8 +121,11 @@ async def search_constituents(
 
     total_pages = (total + page_size - 1) // page_size
 
+    items = [ConstituentResponse.model_validate(c) for c in constituents]
+    items = field_checker.filter_list("constituent", [i.model_dump() for i in items], await field_checker.get_user_permissions(current_user.id), current_user.is_superuser)
+
     return PaginatedResponse(
-        items=[ConstituentResponse.model_validate(c) for c in constituents],
+        items=[ConstituentResponse(**i) for i in items],
         total=total,
         page=page,
         page_size=page_size,
@@ -129,9 +137,11 @@ async def search_constituents(
 async def get_stale_profiles_count(
     threshold_days: int = Query(365, ge=1),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(check_constituents_read),
 ) -> StaleProfileCountResponse:
     """
     Get count of alumni with no substantive profile update for more than threshold_days.
+    Requires constituents.read permission.
     """
     cutoff_date = datetime.now(timezone.utc) - timedelta(days=threshold_days)
 
@@ -160,10 +170,13 @@ async def get_stale_profiles(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-) -> PaginatedResponse:
+    current_user: User = Depends(check_constituents_read),
+    ) -> PaginatedResponse:
     """
     Get paginated list of alumni with no substantive profile update for more than threshold_days.
+    Requires constituents.read permission.
     """
+    field_checker = FieldPermissionChecker(db)
     cutoff_date = datetime.now(timezone.utc) - timedelta(days=threshold_days)
 
     query = (
@@ -190,8 +203,11 @@ async def get_stale_profiles(
 
     total_pages = (total + page_size - 1) // page_size
 
+    items = [ConstituentResponse.model_validate(c) for c in constituents]
+    items = field_checker.filter_list("constituent", [i.model_dump() for i in items], await field_checker.get_user_permissions(current_user.id), current_user.is_superuser)
+
     return PaginatedResponse(
-        items=[ConstituentResponse.model_validate(c) for c in constituents],
+        items=[ConstituentResponse(**i) for i in items],
         total=total,
         page=page,
         page_size=page_size,
@@ -203,13 +219,14 @@ async def get_stale_profiles(
 async def get_profile_360(
     constituent_id: UUID,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(check_constituents_read),
 ) -> Profile360Response:
     """
     Get complete 360° profile for a constituent.
-    Includes all related data: person/organisation details, alumni/donor profile,
-    contact methods, addresses, education records, affiliations, files, and audit events.
+    Includes all related data with field-level permissions applied.
+    Requires constituents.read permission.
     """
-    # Load constituent with all relationships
+    field_checker = FieldPermissionChecker(db)
     query = (
         select(Constituent)
         .options(
@@ -224,6 +241,21 @@ async def get_profile_360(
             selectinload(Constituent.affiliations).selectinload(Affiliation.organisation),
             selectinload(Constituent.files),
             selectinload(Constituent.audit_events),
+            selectinload(Constituent.hostel_history),
+            selectinload(Constituent.academic_courses),
+            selectinload(Constituent.semester_performance),
+            selectinload(Constituent.gps_assignments),
+            selectinload(Constituent.awards_recognition),
+            selectinload(Constituent.scholarships_financial_aid),
+            selectinload(Constituent.internships),
+            selectinload(Constituent.placements),
+            selectinload(Constituent.startups),
+            selectinload(Constituent.ssac_records),
+            selectinload(Constituent.positions_of_responsibility),
+            selectinload(Constituent.publications),
+            selectinload(Constituent.overseas_exposure),
+            selectinload(Constituent.family_members),
+            selectinload(Constituent.profile_photos),
         )
         .where(Constituent.id == constituent_id)
     )
@@ -237,20 +269,54 @@ async def get_profile_360(
             detail=f"Constituent with id {constituent_id} not found",
         )
 
-    # Build response manually to ensure all nested data is loaded
+    user_perms = await field_checker.get_user_permissions(current_user.id)
+    is_super = current_user.is_superuser
+
+    def filter_entity(entity_type: str, data):
+        if not data:
+            return None
+        d = data.model_dump() if hasattr(data, 'model_dump') else data
+        return field_checker.filter_dict(entity_type, d, user_perms, is_super)
+
+    def filter_list_entities(entity_type: str, data_list):
+        return [filter_entity(entity_type, d) for d in data_list]
+
+    # Restricted whole-record gating: SSAC conduct records and third-party
+    # family data are withheld entirely without the respective permission.
+    can_ssac = is_super or "ssac.read_restricted" in user_perms
+    can_family = is_super or "people.read_family" in user_perms
+
     return Profile360Response(
-        constituent=ConstituentResponse.model_validate(constituent),
-        person=PersonResponse.model_validate(constituent.person) if constituent.person else None,
-        organisation=OrganisationResponse.model_validate(constituent.organisation) if constituent.organisation else None,
-        alumni_profile=AlumniProfileResponse.model_validate(constituent.alumni_profile) if constituent.alumni_profile else None,
-        donor_profile=DonorProfileResponse.model_validate(constituent.donor_profile) if constituent.donor_profile else None,
-        contact_methods=[ContactMethodResponse.model_validate(cm) for cm in constituent.contact_methods],
-        addresses=[AddressResponse.model_validate(a) for a in constituent.addresses],
-        communication_preferences=CommunicationPreferencesResponse.model_validate(constituent.communication_preferences) if constituent.communication_preferences else None,
-        education_records=[EducationRecordResponse.model_validate(er) for er in constituent.education_records],
-        affiliations=[AffiliationResponse.model_validate(a) for a in constituent.affiliations],
-        files=[FileRecordResponse.model_validate(f) for f in constituent.files],
+        constituent=filter_entity("constituent", ConstituentResponse.model_validate(constituent)),
+        person=filter_entity("person", PersonResponse.model_validate(constituent.person)) if constituent.person else None,
+        organisation=filter_entity("organisation", OrganisationResponse.model_validate(constituent.organisation)) if constituent.organisation else None,
+        alumni_profile=filter_entity("alumni_profile", AlumniProfileResponse.model_validate(constituent.alumni_profile)) if constituent.alumni_profile else None,
+        donor_profile=filter_entity("donor_profile", DonorProfileResponse.model_validate(constituent.donor_profile)) if constituent.donor_profile else None,
+        contact_methods=filter_list_entities("contact_method", [ContactMethodResponse.model_validate(cm) for cm in constituent.contact_methods]),
+        addresses=filter_list_entities("address", [AddressResponse.model_validate(a) for a in constituent.addresses]),
+        communication_preferences=filter_entity("communication_preferences", CommunicationPreferencesResponse.model_validate(constituent.communication_preferences)) if constituent.communication_preferences else None,
+        education_records=filter_list_entities("education_record", [EducationRecordResponse.model_validate(er) for er in constituent.education_records]),
+        affiliations=filter_list_entities("affiliation", [AffiliationResponse.model_validate(a) for a in constituent.affiliations]),
+        files=filter_list_entities("file", [FileRecordResponse.model_validate(f) for f in constituent.files]),
         audit_events=[AuditEventResponse.model_validate(ae) for ae in constituent.audit_events],
+        hostel_history=[HostelHistoryResponse.model_validate(h) for h in constituent.hostel_history],
+        academic_courses=[AcademicCourseResponse.model_validate(c) for c in constituent.academic_courses],
+        semester_performance=[SemesterPerformanceResponse.model_validate(s) for s in constituent.semester_performance],
+        gps_assignments=[GpsAssignmentResponse.model_validate(g) for g in constituent.gps_assignments],
+        awards_recognition=[AwardRecognitionResponse.model_validate(a) for a in constituent.awards_recognition],
+        scholarships_financial_aid=[ScholarshipFinancialAidResponse.model_validate(s) for s in constituent.scholarships_financial_aid],
+        internships=[InternshipResponse.model_validate(i) for i in constituent.internships],
+        placements=[PlacementResponse.model_validate(p) for p in constituent.placements],
+        startups=[StartupResponse.model_validate(s) for s in constituent.startups],
+        ssac_records=[SsacRecordResponse.model_validate(s) for s in constituent.ssac_records] if can_ssac else [],
+        positions_of_responsibility=[PositionOfResponsibilityResponse.model_validate(p) for p in constituent.positions_of_responsibility],
+        publications=[PublicationResponse.model_validate(p) for p in constituent.publications],
+        overseas_exposure=[OverseasExposureResponse.model_validate(o) for o in constituent.overseas_exposure],
+        family_members=[FamilyMemberResponse.model_validate(f) for f in constituent.family_members] if can_family else [],
+        profile_photos=sorted(
+            (ProfilePhotoResponse.model_validate(p) for p in constituent.profile_photos),
+            key=lambda p: (not p.is_primary, p.position, p.created_at),
+        ),
     )
 
 
@@ -260,15 +326,15 @@ async def search_organisations(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(check_constituents_read),
 ) -> OrganisationSearchResponse:
     """
     Search organisations across all affiliations (current and past).
     Returns each alumnus once with computed affiliation status.
+    Requires constituents.read permission.
     """
     search_term = f"%{q.strip().lower()}%"
 
-    # Query affiliations matching the organisation name (normalised or raw)
-    # Join with organisations table and constituents
     query = (
         select(
             Constituent.id.label("constituent_id"),
@@ -305,7 +371,6 @@ async def search_organisations(
     result = await db.execute(query)
     rows = result.all()
 
-    # Group by constituent to compute affiliation status
     grouped = defaultdict(list)
     for row in rows:
         grouped[row.constituent_id].append(row)
@@ -322,7 +387,6 @@ async def search_organisations(
         else:
             status_label = "Past"
 
-        # Use the first matching affiliation for display
         first_aff = affiliations[0]
         org_name = first_aff.legal_name or first_aff.normalised_name or first_aff.organisation_name_raw or "Unknown"
 

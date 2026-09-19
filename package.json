@@ -15,6 +15,11 @@
     "db:revision": "cd apps/api && alembic revision --autogenerate -m",
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
-    "docker:logs": "docker-compose logs -f"
+    "docker:logs": "docker-compose logs -f",
+    "install:api": "cd apps/api && python -m venv .venv && .venv/bin/pip install -e .[dev]",
+    "dev:api:venv": "cd apps/api && .venv/bin/uvicorn app.main:app --reload",
+    "check:api": "cd apps/api && .venv/bin/ruff check . && .venv/bin/mypy src/app",
+    "test:api": "cd apps/api && .venv/bin/pytest -v",
+    "db:reset": "docker-compose down -v && docker-compose up -d postgres redis && sleep 5 && cd apps/api && .venv/bin/alembic upgrade head"
   }
 }

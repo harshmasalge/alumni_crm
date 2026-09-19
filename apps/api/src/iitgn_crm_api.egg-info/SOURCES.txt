@@ -4,6 +4,10 @@ src/app/main.py
 src/app/core/config.py
 src/app/db/session.py
 src/app/models/__init__.py
+src/app/routers/__init__.py
+src/app/routers/constituents.py
+src/app/routers/health.py
+src/app/schemas/__init__.py
 src/iitgn_crm_api.egg-info/PKG-INFO
 src/iitgn_crm_api.egg-info/SOURCES.txt
 src/iitgn_crm_api.egg-info/dependency_links.txt

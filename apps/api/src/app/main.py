@@ -2,9 +2,10 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.core.audit_middleware import AuditMiddleware
 from app.core.config import settings
 from app.db.session import close_db, init_db
-from app.routers import api_router
+from app.routers import admin, auth, constituents, health, profile_write
 
 
 @asynccontextmanager
@@ -23,6 +24,7 @@ app = FastAPI(
     redoc_url="/redoc" if settings.debug else None,
 )
 
+app.add_middleware(AuditMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -31,7 +33,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(api_router, prefix=settings.api_prefix)
+app.include_router(health.router, prefix=settings.api_prefix, tags=["health"])
+app.include_router(auth.router, prefix=f"{settings.api_prefix}/auth", tags=["auth"])
+app.include_router(constituents.router, prefix=f"{settings.api_prefix}/constituents", tags=["constituents"])
+app.include_router(
+    profile_write.router,
+    prefix=f"{settings.api_prefix}/constituents",
+    tags=["constituents"],
+)
+app.include_router(admin.router, prefix=f"{settings.api_prefix}/admin", tags=["admin"])
 
 
 if __name__ == "__main__":

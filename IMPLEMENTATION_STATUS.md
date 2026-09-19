@@ -1,8 +1,8 @@
 # IITGN Alumni & Donor CRM — Implementation Status
 
 **Last updated:** 2026-09-18  
-**Active checkpoint:** M1 — Persistent alumni/donor registry, 360° profile, affiliations, permissions, audit  
-**Overall status:** M0 complete; M1 in progress
+**Active checkpoint:** M1 — complete, accepted by owner; pending stakeholder review  
+**Overall status:** M0 complete; M1 complete (26 pytest green, `npm run check:crm` green; all M1.md acceptance criteria checked). M2 on hold until stakeholder review concludes.
 
 ## What works today
 
@@ -20,11 +20,16 @@
 - API dependencies pinned in `apps/api/requirements.txt` (generated from `pyproject.toml`).
 - Development automation: `Makefile` (Unix) and `scripts/dev.ps1` (Windows PowerShell).
 - **CRM frontend People module wired to real API**: search by name/roll_no, paginated results, 360° profile with all tabs (identity, alumni profile, contact methods, addresses, education history, career history, audit trail).
+- **M1 security complete (Session 1)**: JWT login (`/auth/login`, `/auth/me`), server-side RBAC on all constituent endpoints, field-level restrictions (optional fields withheld, required PII masked as `[restricted]`), audit middleware attributing the actor from the Bearer token without consuming request bodies.
+- **M1 append workflows (Session 1)**: `POST /constituents/{id}/education` and `POST /constituents/{id}/affiliations` append dated records, close prior current jobs, refresh `last_substantive_profile_update_at`; `days_since_profile_update` computed on read via `app/services/freshness.py`.
+- **M1 UI complete (Session 1)**: staff sign-in panel, stale-profile drill-down (Overview count → filtered People list), stale pagination, organisation search tab with Current/Past labels, freshness display, inline append forms.
+- **M1 automated tests (Session 1)**: 26 pytest tests green — security, field permissions, audit helpers, freshness boundaries, identity seam (ADR-003), route registration, live-DB integration (auth incl. Google allowlist, search, profile, stale, org search, append, 403 enforcement) with seed-data restoration.
+- **Hash-based routing (Session 1)**: `#/people`, `#/people?stale=1`, `#/people/<id>` deep links; browser back/forward works between list and 360° profile; no new dependencies.
 
 ## Under development
 
-- PostgreSQL database and migration execution (requires `docker-compose up`).
-- Server-side RBAC, field-level permissions, and audit middleware.
+- Nothing active. The Administration page is complete (below); M2 backend (donation ledger, pledges, funds, 80G) remains **on hold pending stakeholder review of M1**. M3 deferred per owner decision (full Excel seeding covers real-data testing of People).
+- **Administration page complete (M1 completion, explicitly not M7):** migration `7f3a9c2e41b8` (`users.hashed_password` nullable per ADR-003); admin-gated APIs (`/admin/users` CRUD + role assignment, `/admin/roles` + permission matrix, `/admin/permissions` catalog, `/admin/audit-events` with filters); explicit audit rows for every admin write; last-active-superuser guard; live Administration UI (Users / Roles & permissions / Audit log tabs) replacing the preview; 27 pytest green. System-config lookups stay preview; SSO/network allowlist stay M7.
 
 M1's fixed functional scope is documented in [docs/checkpoints/M1.md](docs/checkpoints/M1.md): full profile lookup by Roll No./name, preserved education and job history, profile-freshness tracking with a >365-day dashboard drill-down, and current/past organisation search. M1 schema work must follow the [data dictionary](docs/data/DATA_DICTIONARY.md).
 
@@ -40,7 +45,8 @@ See [docs/checkpoints/M1.md](docs/checkpoints/M1.md). M1 is complete when Postgr
 
 ## Next smallest useful task
 
-Run `npm run docker:up` to start PostgreSQL and Redis, then `npm run db:migrate` to apply the M1 schema. Verify API at `http://localhost:8000/docs` and CRM at `http://localhost:5173`. Test People search → 360° profile flow end-to-end.
+1. Stakeholder review of M1 incl. Administration and related-entity profile sections (demo script: sign in as admin → Administration → users/roles/audit; sign in as staff → People search → 360° profile with academic/career/restricted sections → stale drill-down → append flows).
+2. For real-data testing of People, seed the full Excel into dev (`scripts/seed_alumni.py` currently caps at 100 rows) — no M3 work needed for that.
 
 ## Change log
 
@@ -53,6 +59,18 @@ Run `npm run docker:up` to start PostgreSQL and Redis, then `npm run db:migrate`
 | 2026-09-18 | Scaffolded M1 FastAPI/PostgreSQL people-registry: domain models, Alembic migration, API routes (search, 360° profile, stale profiles, organisation search), Docker Compose. |
 | 2026-09-18 | Added git `.gitignore`, Python virtual environment setup, `requirements.txt`, `Makefile`, and `scripts/dev.ps1` for cross-platform dev automation. |
 | 2026-09-18 | Wired CRM frontend People module to real API: search (name/roll_no), paginated results, 360° profile with all tabs; TypeScript/build passes. |
+| 2026-09-18 | Session 1 M1 completion: JWT/RBAC + field-level masking + audit attribution; append-only education/affiliation endpoints with freshness refresh; `days_since_profile_update` computed on read; sign-in UI, stale drill-down, org-search tab; 20 pytest tests green; `npm run check:crm` passes. |
+| 2026-09-18 | ADR-003 identity seam: `PasswordIdentityProvider` (dev-only, refuses production) + `GoogleIdentityProvider` (email allowlist, 503 until `GOOGLE_CLIENT_ID` set); shared session minting; `POST /auth/google`; 26 pytest tests green. |
+| 2026-09-18 | M1 accepted by owner (all 9 acceptance criteria verified); hash routing for list/profile deep links + browser back/forward. M2 on hold pending stakeholder review. |
+| 2026-09-18 | Started Administration page as M1 completion (owner-approved, explicitly not M7): email-allowlist user management, role/permission APIs, audit viewer, live UI. M3 deferred. |
+| 2026-09-18 | Completed Administration page: nullable-password migration, 7 admin endpoints (admin-gated, audited, last-superuser guard), live UI with Users/Roles/Audit tabs, 27 pytest green, `npm run check:crm` green. |
+| 2026-09-18 | Administration fixes: shared `AuthPanel` so the page asks for sign-in in place; stale-backend hint on Not Found errors (API server must be restarted to pick up new routes). |
+| 2026-09-18 | Login wall: auth state lifted to the App shell — unauthenticated visitors see only the sign-in screen; per-page sign-in duplicates removed from People/Administration; user chip + sign-out in topbar; 401s return to login centrally. |
+| 2026-09-18 | Owner-confirmed 360° field catalogue + donation-history spec in data dictionary; ADR-004 (staff-only CRM, no online donations, fundraising = entry + analysis); M2/M5 scope notes in master design; M1 known gaps recorded for review (member_types association, programme/discipline lookups, course codes). |
+| 2026-09-18 | Related entities T2–T25 slice complete: 14 child tables + migration, 360° read path with SSAC/family gating (`ssac.read_restricted`, `people.read_family`), seed fixtures, 14 profile panels, 28 pytest green, `npm run check:crm` green. T3 stays M2, T22/T24 stay M4/M6. |
+| 2026-09-18 | Staff widened to full read/write except user/role admin (migration `b81f5d3a90c2`); full profile write coverage — PATCH constituent/person/alumni/comms, POST contacts/addresses, generic POST factory for all 14 T-tables (SSAC/family permission-gated, Roll Number immutable); edit/add UI across all profile panels; 29 pytest green. |
+| 2026-09-18 | Write controls gated on `constituents.write` in the UI (unauthorized notice on click, form never opens); initials avatar top-right of 360° profile as photo placeholder (file serving pending). |
+| 2026-09-18 | Multi-photo support: `profile_photos` table + migration, local object-storage backend, upload/serve/set-primary/delete endpoints (raster-only, 5 MB cap), 112px slideshow with dots/counter, Back button removed (browser history covers navigation). |
 
 ---
 
@@ -74,7 +92,8 @@ Run `npm run docker:up` to start PostgreSQL and Redis, then `npm run db:migrate`
 
 - New files under `apps/crm-web/src/preview/` (no M1 changes): `demoData.ts`, `ui.tsx`, `Fundraising.tsx`, `ImportsReports.tsx`, `Engagement.tsx`, `Communications.tsx`, `IntegrationsAdmin.tsx`.
 - Navigation extended additively: existing 7 items preserved verbatim; `Imports` (Preview) and `Administration` (Under development) appended. Existing M1 modules now render full previews instead of the generic placeholder.
-- `App.tsx` diff limited to: preview imports, `export` on `StatusBadge`, two nav items, render branching. `Overview`, `People`, `ProfileDetail`, `ModulePreview`, `Metric` untouched. No changes to `src/api.ts`, `src/styles.css`, `package.json`, or `apps/api/**`.
+- `App.tsx` at Session 2 commit: preview imports, `export` on `StatusBadge`, two nav items, render branching. `Overview`, `People`, `ProfileDetail`, `ModulePreview`, `Metric` untouched at that commit. No changes to `src/api.ts`, `src/styles.css`, `package.json`, or `apps/api/**` at that commit.
+- Session 1 follow-ups on the same branch (uncommitted at Session 2 commit time, still additive to previews): token-aware `src/api.ts`, staff sign-in panel, stale drill-down, org-search tab, append forms, and hash routing (`#/people`, `#/people?stale=1`, `#/people/<id>`). Preview components under `src/preview/` remain unmodified.
 
 ### Status model and demo-data approach
 

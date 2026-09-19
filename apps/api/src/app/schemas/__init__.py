@@ -1,8 +1,10 @@
 from datetime import date, datetime
-from typing import Optional, List
+from typing import Literal, Optional, List
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, Field, ConfigDict
+from pydantic import BaseModel, EmailStr, Field, ConfigDict, computed_field
+
+from app.services.freshness import days_since
 
 
 class ConstituentBase(BaseModel):
@@ -31,6 +33,15 @@ class ConstituentResponse(ConstituentBase):
     last_substantive_profile_update_at: Optional[datetime]
     created_at: datetime
     updated_at: datetime
+
+    @computed_field  # type: ignore[misc]
+    @property
+    def days_since_profile_update(self) -> Optional[int]:
+        """Days since last substantive update; None when never updated.
+
+        Calculated on read per the data dictionary — never persisted.
+        """
+        return days_since(self.last_substantive_profile_update_at)
 
 
 class PersonBase(BaseModel):
@@ -386,6 +397,276 @@ class ConstituentSearchParams(BaseModel):
     page_size: int = Field(default=20, ge=1, le=100)
 
 
+class _ChildRecordBase(BaseModel):
+    """Shared shape for T-table child rows: owner + audit timestamp."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    constituent_id: UUID
+    created_at: datetime
+
+
+class HostelHistoryResponse(_ChildRecordBase):
+    hostel_name: str
+    room_number: Optional[str] = None
+    academic_year: Optional[str] = None
+    semester: Optional[str] = None
+
+
+class AcademicCourseResponse(_ChildRecordBase):
+    programme_level: str
+    course_code: str
+    course_name: Optional[str] = None
+    credits: Optional[float] = None
+    year: Optional[int] = None
+    semester: Optional[str] = None
+    instructor: Optional[str] = None
+    grade: Optional[str] = None
+
+
+class SemesterPerformanceResponse(_ChildRecordBase):
+    programme_level: str
+    year: Optional[int] = None
+    semester: Optional[str] = None
+    spi: Optional[float] = None
+    cpi: Optional[float] = None
+
+
+class GpsAssignmentResponse(_ChildRecordBase):
+    year: Optional[int] = None
+    semester: Optional[str] = None
+    coordinator_name: Optional[str] = None
+
+
+class AwardRecognitionResponse(_ChildRecordBase):
+    award_type: str
+    award_date: Optional[date] = None
+    agency: Optional[str] = None
+    details: Optional[str] = None
+    academic_year: Optional[str] = None
+    semester: Optional[str] = None
+
+
+class ScholarshipFinancialAidResponse(_ChildRecordBase):
+    aid_type: Optional[str] = None
+    name: str
+    year: Optional[int] = None
+    amount: Optional[float] = None
+    remarks: Optional[str] = None
+
+
+class InternshipResponse(_ChildRecordBase):
+    scope: Optional[str] = None
+    format: Optional[str] = None
+    duration_text: Optional[str] = None
+    organisation: Optional[str] = None
+    year: Optional[int] = None
+    funding_source: Optional[str] = None
+    funding_amount: Optional[float] = None
+
+
+class PlacementResponse(_ChildRecordBase):
+    scope: Optional[str] = None
+    company: Optional[str] = None
+    sector: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    country: Optional[str] = None
+    ctc: Optional[float] = None
+    date_of_joining: Optional[date] = None
+
+
+class StartupResponse(_ChildRecordBase):
+    startup_name: str
+    startup_type: Optional[str] = None
+    incubator: Optional[str] = None
+    founders: Optional[str] = None
+    year: Optional[int] = None
+    team_size: Optional[int] = None
+    sector: Optional[str] = None
+    location: Optional[str] = None
+    website: Optional[str] = None
+
+
+class SsacRecordResponse(_ChildRecordBase):
+    incident_details: Optional[str] = None
+    sanction_letter_date: Optional[date] = None
+    attachment_storage_key: Optional[str] = None
+
+
+class PositionOfResponsibilityResponse(_ChildRecordBase):
+    title: str
+    domain: Optional[str] = None
+    academic_year: Optional[str] = None
+
+
+class PublicationResponse(_ChildRecordBase):
+    title: str
+    doi: Optional[str] = None
+    pub_date: Optional[date] = None
+    attachment_storage_key: Optional[str] = None
+
+
+class OverseasExposureResponse(_ChildRecordBase):
+    organisation: Optional[str] = None
+    year: Optional[int] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    funding_details: Optional[str] = None
+    funding_amount: Optional[float] = None
+
+
+class FamilyMemberResponse(_ChildRecordBase):
+    name: str
+    relation: Optional[str] = None
+    contact_number: Optional[str] = None
+    email: Optional[str] = None
+
+
+class ProfilePhotoResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    constituent_id: UUID
+    original_name: str
+    mime_type: str
+    size_bytes: int
+    position: int
+    is_primary: bool
+    created_at: datetime
+
+
+class ProfilePhotoUpdate(BaseModel):
+    is_primary: Optional[bool] = None
+
+
+class ContactMethodCreateIn(BaseModel):
+    contact_type: str
+    value: str
+    is_primary: bool = False
+    is_verified: bool = False
+    whatsapp_linked: bool = False
+    is_active: bool = True
+
+
+class HostelHistoryCreate(BaseModel):
+    hostel_name: str
+    room_number: Optional[str] = None
+    academic_year: Optional[str] = None
+    semester: Optional[str] = None
+
+
+class AcademicCourseCreate(BaseModel):
+    programme_level: Literal["UG", "PG", "PHD"]
+    course_code: str
+    course_name: Optional[str] = None
+    credits: Optional[float] = None
+    year: Optional[int] = None
+    semester: Optional[str] = None
+    instructor: Optional[str] = None
+    grade: Optional[str] = None
+
+
+class SemesterPerformanceCreate(BaseModel):
+    programme_level: Literal["UG", "PG", "PHD"]
+    year: Optional[int] = None
+    semester: Optional[str] = None
+    spi: Optional[float] = None
+    cpi: Optional[float] = None
+
+
+class GpsAssignmentCreate(BaseModel):
+    year: Optional[int] = None
+    semester: Optional[str] = None
+    coordinator_name: Optional[str] = None
+
+
+class AwardRecognitionCreate(BaseModel):
+    award_type: str
+    award_date: Optional[date] = None
+    agency: Optional[str] = None
+    details: Optional[str] = None
+    academic_year: Optional[str] = None
+    semester: Optional[str] = None
+
+
+class ScholarshipFinancialAidCreate(BaseModel):
+    aid_type: Optional[str] = None
+    name: str
+    year: Optional[int] = None
+    amount: Optional[float] = None
+    remarks: Optional[str] = None
+
+
+class InternshipCreate(BaseModel):
+    scope: Optional[str] = None
+    format: Optional[str] = None
+    duration_text: Optional[str] = None
+    organisation: Optional[str] = None
+    year: Optional[int] = None
+    funding_source: Optional[str] = None
+    funding_amount: Optional[float] = None
+
+
+class PlacementCreate(BaseModel):
+    scope: Optional[str] = None
+    company: Optional[str] = None
+    sector: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    country: Optional[str] = None
+    ctc: Optional[float] = None
+    date_of_joining: Optional[date] = None
+
+
+class StartupCreate(BaseModel):
+    startup_name: str
+    startup_type: Optional[str] = None
+    incubator: Optional[str] = None
+    founders: Optional[str] = None
+    year: Optional[int] = None
+    team_size: Optional[int] = None
+    sector: Optional[str] = None
+    location: Optional[str] = None
+    website: Optional[str] = None
+
+
+class SsacRecordCreate(BaseModel):
+    incident_details: Optional[str] = None
+    sanction_letter_date: Optional[date] = None
+    attachment_storage_key: Optional[str] = None
+
+
+class PositionOfResponsibilityCreate(BaseModel):
+    title: str
+    domain: Optional[str] = None
+    academic_year: Optional[str] = None
+
+
+class PublicationCreate(BaseModel):
+    title: str
+    doi: Optional[str] = None
+    pub_date: Optional[date] = None
+    attachment_storage_key: Optional[str] = None
+
+
+class OverseasExposureCreate(BaseModel):
+    organisation: Optional[str] = None
+    year: Optional[int] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    funding_details: Optional[str] = None
+    funding_amount: Optional[float] = None
+
+
+class FamilyMemberCreate(BaseModel):
+    name: str
+    relation: Optional[str] = None
+    contact_number: Optional[str] = None
+    email: Optional[str] = None
+
+
 class PaginatedResponse(BaseModel):
     items: List[ConstituentResponse]
     total: int
@@ -409,6 +690,21 @@ class Profile360Response(BaseModel):
     affiliations: List[AffiliationResponse] = []
     files: List[FileRecordResponse] = []
     audit_events: List[AuditEventResponse] = []
+    hostel_history: List[HostelHistoryResponse] = []
+    academic_courses: List[AcademicCourseResponse] = []
+    semester_performance: List[SemesterPerformanceResponse] = []
+    gps_assignments: List[GpsAssignmentResponse] = []
+    awards_recognition: List[AwardRecognitionResponse] = []
+    scholarships_financial_aid: List[ScholarshipFinancialAidResponse] = []
+    internships: List[InternshipResponse] = []
+    placements: List[PlacementResponse] = []
+    startups: List[StartupResponse] = []
+    ssac_records: List[SsacRecordResponse] = []
+    positions_of_responsibility: List[PositionOfResponsibilityResponse] = []
+    publications: List[PublicationResponse] = []
+    overseas_exposure: List[OverseasExposureResponse] = []
+    family_members: List[FamilyMemberResponse] = []
+    profile_photos: List[ProfilePhotoResponse] = []
 
 
 class StaleProfileCountResponse(BaseModel):
@@ -435,6 +731,84 @@ class OrganisationSearchResult(BaseModel):
 
 class OrganisationSearchResponse(BaseModel):
     items: List[OrganisationSearchResult]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
+class AdminUserResponse(BaseModel):
+    """Staff user. Never serializes any credential material."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    email: str
+    full_name: str
+    is_active: bool
+    is_superuser: bool
+    roles: List[str] = []
+    created_at: datetime
+    updated_at: datetime
+
+
+class AdminUserCreate(BaseModel):
+    # Email-allowlist entry (ADR-003): no password is stored, ever.
+    email: EmailStr
+    full_name: str = Field(..., min_length=1, max_length=255)
+    role_ids: List[UUID] = []
+    is_superuser: bool = False
+
+
+class AdminUserUpdate(BaseModel):
+    full_name: Optional[str] = Field(None, min_length=1, max_length=255)
+    is_active: Optional[bool] = None
+    is_superuser: Optional[bool] = None
+
+
+class AdminUserRolesUpdate(BaseModel):
+    role_ids: List[UUID]
+
+
+class AdminUserListResponse(BaseModel):
+    items: List[AdminUserResponse]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
+class AdminRoleResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    name: str
+    description: Optional[str] = None
+    permissions: List[str] = []
+    created_at: datetime
+
+
+class AdminRoleCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+    description: Optional[str] = None
+
+
+class AdminRolePermissionsUpdate(BaseModel):
+    permission_ids: List[UUID]
+
+
+class AdminPermissionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    name: str
+    description: Optional[str] = None
+    module: str
+    action: str
+
+
+class AdminAuditListResponse(BaseModel):
+    items: List[AuditEventResponse]
     total: int
     page: int
     page_size: int

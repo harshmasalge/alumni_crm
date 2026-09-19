@@ -24,8 +24,8 @@ FastAPI modular monolith
 PostgreSQL | Redis jobs | Object storage
 ```
 
-- Internal CRM: React + TypeScript + Vite.
-- Alumni portal: separate frontend with a limited `/me` API; later release.
+- Internal CRM: React + TypeScript + Vite. The CRM is staff-only; every page sits behind staff sign-in (ADR-003, ADR-004).
+- Alumni portal: scope under review per ADR-004 (no alumni self-donation flow will exist in this system). Previously planned as a separate frontend with a limited `/me` API; do not build until re-scoped.
 - API: FastAPI, SQLAlchemy, Alembic, Pydantic.
 - Data: PostgreSQL is the source of truth; object storage is for files; Redis supports jobs/cache.
 - Deployment: Docker locally; production cloud and provider choices require IITGN approval.
@@ -69,10 +69,10 @@ This applies to identity, email, WhatsApp, SMS, payment, ERP, donation portal, a
 | --- | --- |
 | M0 | Professional CRM preview shell, local stack, feature states, seeded demo data |
 | M1 | Persistent alumni/donor registry, 360° profile, affiliations, permissions, audit |
-| M2 | Donation ledger, pledges, funds, sample 80G workflow |
+| M2 | Donation ledger, pledges, funds, sample 80G workflow — staff data entry and analysis only, no online collection (ADR-004) |
 | M3 | Staged import/migration workbench and standard reporting |
 | M4 | Events, attendance, chapters, engagement and staff queues |
-| M5 | Restricted alumni self-service portal |
+| M5 | Restricted alumni self-service portal — scope under review, do not build until re-scoped (ADR-004) |
 | M6 | Compliant campaigns and automation with mock/in-app delivery |
 | M7 | IITGN-controlled integrations and production hardening |
 

@@ -1,17 +1,60 @@
+# Node
 node_modules/
 dist/
+.build/
 .vite/
 coverage/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
 .env
 .env.*
 !.env.example
-__pycache__/
 .pytest_cache/
 .mypy_cache/
-.venv/
-*.pyc
+.ruff_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+*.egg-info/
+dist/
+build/
+.pdm/
+.pixi/
+uv.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Database
+*.sqlite
+*.db
 uploads/
 data/
+
+# Docker
+docker-compose.override.yml
+
+# OS
+Thumbs.db
+ehthumbs.db
+Desktop.ini
 
 # Local alumni data
 Alumni Database.xlsx

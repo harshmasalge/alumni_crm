@@ -23,6 +23,12 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
 
+    # Identity provider seam (see ADR-003).
+    # "password" = dev/staging-only local credential check, never production.
+    # "google"   = production Sign in with Google (requires google_client_id).
+    identity_provider: str = "password"
+    google_client_id: str = ""
+
     # CORS
     cors_origins: list[str] = ["http://localhost:5173", "http://localhost:5174", "http://localhost:5175"]
 

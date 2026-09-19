@@ -11,6 +11,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    Numeric,
     SmallInteger,
     String,
     Text,
@@ -56,6 +57,12 @@ class EducationStage(str, enum.Enum):
     PRE_IITGN = "PRE_IITGN"
     IITGN = "IITGN"
     POST_IITGN = "POST_IITGN"
+
+
+class ProgrammeLevel(str, enum.Enum):
+    UG = "UG"
+    PG = "PG"
+    PHD = "PHD"
 
 
 class AffiliationType(str, enum.Enum):
@@ -130,6 +137,21 @@ class Constituent(Base):
     affiliations: Mapped[list["Affiliation"]] = relationship(back_populates="constituent", cascade="all, delete-orphan")
     audit_events: Mapped[list["AuditEvent"]] = relationship(back_populates="constituent", cascade="all, delete-orphan")
     files: Mapped[list["FileRecord"]] = relationship(back_populates="constituent", cascade="all, delete-orphan")
+    hostel_history: Mapped[list["HostelHistory"]] = relationship(back_populates="constituent", cascade="all, delete-orphan")
+    academic_courses: Mapped[list["AcademicCourse"]] = relationship(back_populates="constituent", cascade="all, delete-orphan")
+    semester_performance: Mapped[list["SemesterPerformance"]] = relationship(back_populates="constituent", cascade="all, delete-orphan")
+    gps_assignments: Mapped[list["GpsAssignment"]] = relationship(back_populates="constituent", cascade="all, delete-orphan")
+    awards_recognition: Mapped[list["AwardRecognition"]] = relationship(back_populates="constituent", cascade="all, delete-orphan")
+    scholarships_financial_aid: Mapped[list["ScholarshipFinancialAid"]] = relationship(back_populates="constituent", cascade="all, delete-orphan")
+    internships: Mapped[list["Internship"]] = relationship(back_populates="constituent", cascade="all, delete-orphan")
+    placements: Mapped[list["Placement"]] = relationship(back_populates="constituent", cascade="all, delete-orphan")
+    startups: Mapped[list["Startup"]] = relationship(back_populates="constituent", cascade="all, delete-orphan")
+    ssac_records: Mapped[list["SsacRecord"]] = relationship(back_populates="constituent", cascade="all, delete-orphan")
+    positions_of_responsibility: Mapped[list["PositionOfResponsibility"]] = relationship(back_populates="constituent", cascade="all, delete-orphan")
+    publications: Mapped[list["Publication"]] = relationship(back_populates="constituent", cascade="all, delete-orphan")
+    overseas_exposure: Mapped[list["OverseasExposure"]] = relationship(back_populates="constituent", cascade="all, delete-orphan")
+    family_members: Mapped[list["FamilyMember"]] = relationship(back_populates="constituent", cascade="all, delete-orphan")
+    profile_photos: Mapped[list["ProfilePhoto"]] = relationship(back_populates="constituent", cascade="all, delete-orphan")
 
     __table_args__ = (
         Index("ix_constituents_kind_status", "kind", "status"),
@@ -391,7 +413,9 @@ class User(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+    # Nullable per ADR-003: production users authenticate via Google and
+    # have no stored credential; dev seed rows may carry a local hash.
+    hashed_password: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     is_superuser: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     last_login_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -446,3 +470,344 @@ class RolePermission(Base):
     permission_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("permissions.id", ondelete="CASCADE"), primary_key=True)
     granted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     granted_by: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), nullable=True)
+
+
+# ---------------------------------------------------------------------------
+# Related entity tables T4–T25 (M1-extension slice).
+#
+# Every table is a child of the alumni profile via constituent_id UUID with
+# ON DELETE CASCADE. Rows are append-only; nothing here overwrites history.
+# File attachments (T17/T21) are object-storage keys, never byte columns.
+# ---------------------------------------------------------------------------
+
+class HostelHistory(Base):
+    """T4 — complete on-campus residential history."""
+
+    __tablename__ = "hostel_history"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    constituent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("constituents.id", ondelete="CASCADE"), nullable=False)
+    hostel_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    room_number: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    academic_year: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    semester: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    constituent: Mapped["Constituent"] = relationship(back_populates="hostel_history")
+
+    __table_args__ = (
+        Index("ix_hostel_history_constituent", "constituent_id"),
+    )
+
+
+class AcademicCourse(Base):
+    """T5/T8/T10 — complete academic transcript; programme_level distinguishes UG/PG/PhD."""
+
+    __tablename__ = "academic_courses"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    constituent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("constituents.id", ondelete="CASCADE"), nullable=False)
+    programme_level: Mapped[ProgrammeLevel] = mapped_column(Enum(ProgrammeLevel), nullable=False)
+    course_code: Mapped[str] = mapped_column(String(50), nullable=False)
+    course_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    credits: Mapped[Optional[float]] = mapped_column(Numeric(4, 1), nullable=True)
+    year: Mapped[Optional[int]] = mapped_column(SmallInteger, nullable=True)
+    semester: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    instructor: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    grade: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    constituent: Mapped["Constituent"] = relationship(back_populates="academic_courses")
+
+    __table_args__ = (
+        Index("ix_academic_courses_constituent", "constituent_id"),
+        Index("ix_academic_courses_code", "course_code"),
+    )
+
+
+class SemesterPerformance(Base):
+    """T6/T9/T11 — semester-wise SPI and CPI per programme level."""
+
+    __tablename__ = "semester_performance"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    constituent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("constituents.id", ondelete="CASCADE"), nullable=False)
+    programme_level: Mapped[ProgrammeLevel] = mapped_column(Enum(ProgrammeLevel), nullable=False)
+    year: Mapped[Optional[int]] = mapped_column(SmallInteger, nullable=True)
+    semester: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    spi: Mapped[Optional[float]] = mapped_column(Numeric(4, 2), nullable=True)
+    cpi: Mapped[Optional[float]] = mapped_column(Numeric(4, 2), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    constituent: Mapped["Constituent"] = relationship(back_populates="semester_performance")
+
+    __table_args__ = (
+        Index("ix_semester_performance_constituent", "constituent_id"),
+    )
+
+
+class GpsAssignment(Base):
+    """T7 — Graduate Program Seminar assignments with coordinator name."""
+
+    __tablename__ = "gps_assignments"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    constituent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("constituents.id", ondelete="CASCADE"), nullable=False)
+    year: Mapped[Optional[int]] = mapped_column(SmallInteger, nullable=True)
+    semester: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    coordinator_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    constituent: Mapped["Constituent"] = relationship(back_populates="gps_assignments")
+
+    __table_args__ = (
+        Index("ix_gps_assignments_constituent", "constituent_id"),
+    )
+
+
+class AwardRecognition(Base):
+    """T12 — Dean's List / medals / awards / recognition."""
+
+    __tablename__ = "awards_recognition"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    constituent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("constituents.id", ondelete="CASCADE"), nullable=False)
+    award_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    award_date: Mapped[Optional[datetime]] = mapped_column(Date, nullable=True)
+    agency: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    details: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    academic_year: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    semester: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    constituent: Mapped["Constituent"] = relationship(back_populates="awards_recognition")
+
+    __table_args__ = (
+        Index("ix_awards_recognition_constituent", "constituent_id"),
+    )
+
+
+class ScholarshipFinancialAid(Base):
+    """T13 — all forms of financial support received."""
+
+    __tablename__ = "scholarships_financial_aid"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    constituent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("constituents.id", ondelete="CASCADE"), nullable=False)
+    aid_type: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    year: Mapped[Optional[int]] = mapped_column(SmallInteger, nullable=True)
+    amount: Mapped[Optional[float]] = mapped_column(Numeric(12, 2), nullable=True)
+    remarks: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    constituent: Mapped["Constituent"] = relationship(back_populates="scholarships_financial_aid")
+
+    __table_args__ = (
+        Index("ix_scholarships_constituent", "constituent_id"),
+    )
+
+
+class Internship(Base):
+    """T14 — domestic/international, online/offline internships with funding."""
+
+    __tablename__ = "internships"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    constituent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("constituents.id", ondelete="CASCADE"), nullable=False)
+    scope: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    format: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    duration_text: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    organisation: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    year: Mapped[Optional[int]] = mapped_column(SmallInteger, nullable=True)
+    funding_source: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    funding_amount: Mapped[Optional[float]] = mapped_column(Numeric(12, 2), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    constituent: Mapped["Constituent"] = relationship(back_populates="internships")
+
+    __table_args__ = (
+        Index("ix_internships_constituent", "constituent_id"),
+    )
+
+
+class Placement(Base):
+    """T15 — placement record with CTC and joining date."""
+
+    __tablename__ = "placements"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    constituent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("constituents.id", ondelete="CASCADE"), nullable=False)
+    scope: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    company: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    sector: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    city: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    state: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    country: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    ctc: Mapped[Optional[float]] = mapped_column(Numeric(12, 2), nullable=True)
+    date_of_joining: Mapped[Optional[datetime]] = mapped_column(Date, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    constituent: Mapped["Constituent"] = relationship(back_populates="placements")
+
+    __table_args__ = (
+        Index("ix_placements_constituent", "constituent_id"),
+    )
+
+
+class Startup(Base):
+    """T16 — startup and entrepreneurship record."""
+
+    __tablename__ = "startups"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    constituent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("constituents.id", ondelete="CASCADE"), nullable=False)
+    startup_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    startup_type: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    incubator: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    founders: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    year: Mapped[Optional[int]] = mapped_column(SmallInteger, nullable=True)
+    team_size: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    sector: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    location: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    website: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    constituent: Mapped["Constituent"] = relationship(back_populates="startups")
+
+    __table_args__ = (
+        Index("ix_startups_constituent", "constituent_id"),
+    )
+
+
+class SsacRecord(Base):
+    """T17 — student conduct records. Restricted: separate policy/approval
+    required; readable only with the ssac.read_restricted permission."""
+
+    __tablename__ = "ssac_records"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    constituent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("constituents.id", ondelete="CASCADE"), nullable=False)
+    incident_details: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    sanction_letter_date: Mapped[Optional[datetime]] = mapped_column(Date, nullable=True)
+    attachment_storage_key: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    constituent: Mapped["Constituent"] = relationship(back_populates="ssac_records")
+
+    __table_args__ = (
+        Index("ix_ssac_records_constituent", "constituent_id"),
+    )
+
+
+class PositionOfResponsibility(Base):
+    """T18 — leadership history (council / club / event)."""
+
+    __tablename__ = "positions_of_responsibility"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    constituent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("constituents.id", ondelete="CASCADE"), nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    domain: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    academic_year: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    constituent: Mapped["Constituent"] = relationship(back_populates="positions_of_responsibility")
+
+    __table_args__ = (
+        Index("ix_por_constituent", "constituent_id"),
+    )
+
+
+class Publication(Base):
+    """T21 — research output tracking; PDF lives in object storage."""
+
+    __tablename__ = "publications"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    constituent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("constituents.id", ondelete="CASCADE"), nullable=False)
+    title: Mapped[str] = mapped_column(String(500), nullable=False)
+    doi: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    pub_date: Mapped[Optional[datetime]] = mapped_column(Date, nullable=True)
+    attachment_storage_key: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    constituent: Mapped["Constituent"] = relationship(back_populates="publications")
+
+    __table_args__ = (
+        Index("ix_publications_constituent", "constituent_id"),
+    )
+
+
+class OverseasExposure(Base):
+    """T23 — exchange programmes and visiting positions with funding."""
+
+    __tablename__ = "overseas_exposure"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    constituent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("constituents.id", ondelete="CASCADE"), nullable=False)
+    organisation: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    year: Mapped[Optional[int]] = mapped_column(SmallInteger, nullable=True)
+    start_date: Mapped[Optional[datetime]] = mapped_column(Date, nullable=True)
+    end_date: Mapped[Optional[datetime]] = mapped_column(Date, nullable=True)
+    funding_details: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    funding_amount: Mapped[Optional[float]] = mapped_column(Numeric(12, 2), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    constituent: Mapped["Constituent"] = relationship(back_populates="overseas_exposure")
+
+    __table_args__ = (
+        Index("ix_overseas_exposure_constituent", "constituent_id"),
+    )
+
+
+class FamilyMember(Base):
+    """T25 — emergency contacts and spouse/children information.
+
+    Third-party PII: readable only with the people.read_family permission;
+    never in list/search/export responses.
+    """
+
+    __tablename__ = "family_members"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    constituent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("constituents.id", ondelete="CASCADE"), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    relation: Mapped[Optional[str]] = mapped_column("relationship", String(100), nullable=True)
+    contact_number: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    constituent: Mapped["Constituent"] = relationship(back_populates="family_members")
+
+    __table_args__ = (
+        Index("ix_family_members_constituent", "constituent_id"),
+    )
+
+
+class ProfilePhoto(Base):
+    """Alumni profile photos (multiple per profile, ordered).
+
+    Binary bytes live in object storage (local dir in dev); only metadata
+    lives here. `person.profile_photo_file_id` is the legacy single-photo
+    pointer and is no longer written by new code.
+    """
+
+    __tablename__ = "profile_photos"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    constituent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("constituents.id", ondelete="CASCADE"), nullable=False)
+    storage_key: Mapped[str] = mapped_column(String(500), nullable=False)
+    original_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    mime_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    uploaded_by: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    constituent: Mapped["Constituent"] = relationship(back_populates="profile_photos")
+
+    __table_args__ = (
+        Index("ix_profile_photos_constituent", "constituent_id"),
+    )
