@@ -1,0 +1,90 @@
+# Render Blueprint — Docker deploys driven from GitHub.
+#
+# Workflow: push a working feature to GitHub (code + updated Dockerfile if
+# the feature needs new system deps) -> Render rebuilds both images and
+# redeploys automatically. No manual steps per deploy.
+#
+# First-time setup:
+#   1. Push this file to GitHub.
+#   2. Render Dashboard > New > Blueprint > select this repo.
+#   3. After the first deploy, Render prints the real URLs. If they differ
+#      from the guesses below, update VITE_API_URL (frontend) and
+#      CORS_ORIGINS (API) once, then push — Render redeploys.
+#
+# Notes:
+# - The API container runs `alembic upgrade head` on every start, so a push
+#   that adds a migration upgrades the database before serving traffic.
+# - VITE_API_URL is baked in at build time (Vite requirement). Render
+#   forwards env vars as Docker build args automatically.
+# - Never put secrets in build args; SECRET_KEY below is runtime-only and
+#   the API Dockerfile never references it during build.
+# - Redis is intentionally omitted: the API only declares REDIS_URL, no
+#   code path uses it yet. Add a Key Value instance when a feature needs it.
+# - `uploads/` (profile photos) is ephemeral on Render. When photos must
+#   survive redeploys, add a Disk or move to object storage (M7 scope).
+
+databases:
+  - name: iitgn-crm-db
+    databaseName: iitgn_crm
+    user: iitgn_crm
+    plan: starter
+
+services:
+  - type: web
+    name: iitgn-crm-api
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: ./apps/api
+    healthCheckPath: /api/v1/health
+    autoDeploy: true
+    buildFilter:
+      paths:
+        - apps/api/**
+        - render.yaml
+    envVars:
+      # Staging, not production: password sign-in refuses to run when
+      # ENVIRONMENT=production (ADR-003), and the demo bootstrap below
+      # refuses there too. Real production needs GOOGLE_CLIENT_ID plus
+      # IITGN-approved break-glass admins — never DEMO_SEED.
+      - key: ENVIRONMENT
+        value: staging
+      - key: DEBUG
+        value: "false"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: iitgn-crm-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: CORS_ORIGINS
+        value: '["https://iitgn-crm-web.onrender.com"]'
+      - key: IDENTITY_PROVIDER
+        value: password
+      # Leadership demo: first boot provisions demo accounts (same emails
+      # as local: admin/staff/viewer/finance @iitgn.ac.in) plus ~100
+      # fictional alumni and a demo group. Alumni seed only on empty DB.
+      - key: DEMO_SEED
+        value: "true"
+      - key: DEMO_ALUMNI_COUNT
+        value: "100"
+      # Set once in the Render dashboard (secret): the password for all
+      # four demo accounts. Share it with leadership out of band.
+      - key: DEMO_PASSWORD
+        sync: false
+
+  - type: web
+    name: iitgn-crm-web
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./apps/crm-web/Dockerfile
+    dockerContext: ./apps/crm-web
+    healthCheckPath: /health
+    autoDeploy: true
+    buildFilter:
+      paths:
+        - apps/crm-web/**
+        - render.yaml
+    envVars:
+      - key: VITE_API_URL
+        value: https://iitgn-crm-api.onrender.com/api/v1

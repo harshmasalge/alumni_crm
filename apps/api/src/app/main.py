@@ -1,16 +1,29 @@
+import logging
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.audit_middleware import AuditMiddleware
 from app.core.config import settings
+from app.db.demo_bootstrap import run_demo_bootstrap
 from app.db.session import close_db, init_db
 from app.routers import admin, auth, constituents, exports, groups, health, organisations, profile_write, segmentation, taxonomies
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
+    if settings.demo_seed:
+        try:
+            await run_demo_bootstrap()
+        except Exception:
+            logger.exception(
+                "Demo bootstrap failed; serving with existing data. "
+                "Fix DEMO_SEED/DEMO_PASSWORD/ENVIRONMENT and restart."
+            )
     yield
     await close_db()
 

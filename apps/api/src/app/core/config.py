@@ -1,3 +1,4 @@
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -31,6 +32,28 @@ class Settings(BaseSettings):
 
     # CORS
     cors_origins: list[str] = ["http://localhost:5173", "http://localhost:5174", "http://localhost:5175"]
+
+    # Demo bootstrap (staging/demo only — never production; see
+    # app.db.demo_bootstrap). When demo_seed is true, every boot ensures
+    # demo accounts and fictional demo data so a fresh database behaves
+    # like a locally seeded one.
+    demo_seed: bool = False
+    demo_password: str = ""
+    demo_alumni_count: int = 100
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def _normalize_database_url(cls, v: str) -> str:
+        # Managed providers (e.g. Render) hand out postgres:// or plain
+        # postgresql:// URLs, but this service's async engine needs the
+        # postgresql+asyncpg:// driver scheme. Normalise here so the same
+        # image runs locally and on Render without manual URL surgery.
+        if isinstance(v, str):
+            if v.startswith("postgres://"):
+                v = "postgresql://" + v[len("postgres://"):]
+            if v.startswith("postgresql://"):
+                v = "postgresql+asyncpg://" + v[len("postgresql://"):]
+        return v
 
 
 settings = Settings()
